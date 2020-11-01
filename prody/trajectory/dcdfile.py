@@ -14,7 +14,7 @@ from numpy import float32, fromstring
 
 from prody.atomic import Atomic
 from prody.ensemble import Ensemble
-from prody.utilities import checkCoords
+from prody.utilities import checkCoords, pystr
 from prody import LOGGER, PY2K
 
 from .frame import Frame
@@ -83,9 +83,9 @@ class DCDFile(TrajFile):
                         'endianness.')
             rec_scale = RECSCALE64BIT
         elif temp[0] == 84 and temp[1] == dcdcordmagic:
-            pass
             #LOGGER.info('Detected standard 32-bit DCD file of native '
             #            'endianness.')
+            pass
         else:
             if unpack(b'>ii', bits) == temp:
                 endian = '>'
@@ -118,10 +118,10 @@ class DCDFile(TrajFile):
         # Buffer the entire header for random access
         bits = dcd.read(80)
 
-        # CHARMm-genereate DCD files set the last integer in the
+        # CHARMM-generated DCD files set the last integer in the
         # header, which is unused by X-PLOR, to its version number.
-        # Checking if this is nonzero tells us this is a CHARMm file
-        # and to look for other CHARMm flags.
+        # Checking if this is nonzero tells us this is a CHARMM file
+        # and to look for other CHARMM flags.
         temp = unpack(endian + b'i'*20 , bits)
 
         if temp[-1] != 0:
@@ -148,7 +148,7 @@ class DCDFile(TrajFile):
             raise IOError('DCD files with fixed atoms is not yet supported.')
 
         # Read in the timestep, DELTA
-        # Note: DELTA is stored as double with X-PLOR but as float with CHARMm
+        # Note: DELTA is stored as double with X-PLOR but as float with CHARMM
         self._timestep = temp[9]
         self._unitcell = temp[10] == 1
 
@@ -166,10 +166,10 @@ class DCDFile(TrajFile):
         # Read NTITLE, the number of 80 character title strings there are
         temp = unpack(endian + b'i', dcd.read(rec_scale * calcsize('i')))
 
-        self._dcdtitle = dcd.read(80)
+        self._dcdtitle = pystr(dcd.read(80))
 
         if not noremarks:
-            self._remarks = dcd.read(80)
+            self._remarks = pystr(dcd.read(80))
 
         # Get the ending size for this block
         temp = unpack(endian + b'i', dcd.read(rec_scale * calcsize('i')))
@@ -186,7 +186,7 @@ class DCDFile(TrajFile):
                                dcd.read(rec_scale*calcsize('i')))[0]
         # Read in an integer '4'
         if unpack(endian + b'i', dcd.read(rec_scale * calcsize('i')))[0] != 4:
-            raise IOError('Bad DCD format.')
+            raise IOError('Unrecognized DCD format.')
 
         self._is64bit = rec_scale == RECSCALE64BIT
         self._endian = endian
