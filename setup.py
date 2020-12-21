@@ -55,6 +55,7 @@ PACKAGES = ['prody',
             'prody.sequence',
             'prody.trajectory',
             'prody.chromatin',
+            'prody.compounds',
             'prody.domain_decomposition',
             'prody.utilities',
             'prody.apps',
@@ -178,6 +179,6 @@ setup(
     entry_points = {
         'console_scripts': SCRIPTS,
     },
-    install_requires=['numpy>=1.10', 'biopython<=1.76', 'pyparsing', 'scipy', 'matplotlib<3.0'],
+    install_requires=['numpy>=1.10', 'biopython', 'pyparsing', 'scipy'],
     #provides=['ProDy ({0:s})'.format(__version__)]
 )
