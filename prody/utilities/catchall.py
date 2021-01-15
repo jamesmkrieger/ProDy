@@ -1,9 +1,6 @@
 """This module defines miscellaneous utility functions that is public to users."""
 
 import numpy as np
-from numpy import unique, linalg, diag, sqrt, dot
-
-from Bio.Phylo.BaseTree import Tree, Clade
 
 from prody import PY3K
 from .misctools import addEnds, interpY, index, isListLike
@@ -542,6 +539,7 @@ def showLines(*args, **kwargs):
 
     from matplotlib import cm, ticker
     from matplotlib.pyplot import figure, gca, xlim
+    from .drawtools import IndexFormatter
 
     ax = gca()
     lines = ax.plot(*args, **kwargs)
@@ -720,7 +718,7 @@ def showMatrix(matrix, x_array=None, y_array=None, **kwargs):
     from matplotlib.collections import LineCollection
     from matplotlib.pyplot import gca, sca, sci, colorbar, subplot
 
-    from .drawtools import drawTree
+    from .drawtools import drawTree, IndexFormatter
 
     p = kwargs.pop('percentile', None)
     vmin = vmax = None
