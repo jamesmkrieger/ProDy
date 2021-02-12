@@ -247,7 +247,9 @@ class EMDMAP(object):
 
         if max_cutoff is not None and not isinstance(max_cutoff, Number):
             raise TypeError('max_cutoff should be a number or None')
-            
+        
+        self._filename = stream.name
+
         # Number of columns, rows, and sections (3 words, 12 bytes, 1-12)
         self.NC = st.unpack('<L', stream.read(4))[0]
         self.NR = st.unpack('<L', stream.read(4))[0]
@@ -396,6 +398,14 @@ class EMDMAP(object):
 
     origin = property(getOrigin, setOrigin)
 
+    def getTitle(self):
+        return self._filename
+
+    def setTitle(self, title):
+        self._filename = title
+
+    filename = property(getTitle, setTitle)
+
     def getApix(self):
         return self.Lx / self.NS, self.Ly / self.NR, self.Lz / self.NC
 
@@ -417,6 +427,8 @@ class EMDMAP(object):
     apix = property(getApix, setApix)
 
     def coordinate(self, sec, row, col):
+        """Given a position as *sec*, *row* and *col*, 
+        it will return its coordinate in Angstroms. """
         # calculate resolution
         res = np.empty(3)
         res[self.mapc - 1] = self.NC
@@ -433,6 +445,15 @@ class EMDMAP(object):
         # convert to Angstroms
         ret = np.multiply(ret, res)
         return ret
+
+    def toTEMPyMap(self):
+        """Convert to a TEMPy Map."""
+        try:
+            from TEMPy.maps.em_map import Map
+        except ImportError:
+            raise ImportError('TEMPy needs to be installed for this functionality')
+        
+        return Map(ne_map.density, ne_map.origin, ne_map.apix, ne_map.filename, ne_map_header)
 
 
 class TRNET(object):
