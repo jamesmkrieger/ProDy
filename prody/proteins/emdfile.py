@@ -6,6 +6,7 @@
 from collections import defaultdict
 from numbers import Number
 import os.path
+from prody.utilities.misctools import isListLike
 
 from prody.atomic import AtomGroup
 from prody.atomic import flags
@@ -271,6 +272,9 @@ class EMDMAP(object):
         self.Ly = st.unpack('<f', stream.read(4))[0]
         self.Lz = st.unpack('<f', stream.read(4))[0]
 
+        # Angstroms per pixel
+        self.setApix = self.Lx / self.NS, self.Ly / self.NR, self.Lz / self.NC
+
         # Cell angles (Degrees) (3 words, 12 bytes, 53-64)
         self.a = st.unpack('<f', stream.read(4))[0]
         self.b = st.unpack('<f', stream.read(4))[0]
@@ -383,6 +387,34 @@ class EMDMAP(object):
 
     def center(self):
         return int(self.NS / 2), int(self.NR / 2), int(self.NC / 2)
+
+    def getOrigin(self):
+        return self.x0, self.y0, self.z0
+
+    def setOrigin(self, x0, y0, z0):
+        self.x0, self.y0, self.z0 = x0, y0, z0
+
+    origin = property(getOrigin, setOrigin)
+
+    def getApix(self):
+        return self.Lx / self.NS, self.Ly / self.NR, self.Lz / self.NC
+
+    def setApix(self, apix):
+        if not isListLike(apix):
+            try:
+                apix = [apix, apix, apix]
+            except:
+                raise TypeError('apix must be a single value or list-like')
+
+        if len(apix) != 3:
+            raise ValueError('apix must be a single value or 3 values')
+        
+        self._apix = apix
+        self.Lx = apix[0] * self.NS
+        self.Ly = apix[1] * self.NR
+        self.Lz = apix[2] * self.NC
+
+    apix = property(getApix, setApix)
 
     def coordinate(self, sec, row, col):
         # calculate resolution
