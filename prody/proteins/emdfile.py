@@ -12,7 +12,7 @@ from prody.atomic import AtomGroup
 from prody.atomic import flags
 from prody.atomic import ATOMIC_FIELDS
 
-from prody.utilities import openFile
+from prody.utilities import openFile, isListLike
 from prody import LOGGER, SETTINGS
 
 from .localpdb import fetchPDB
@@ -407,7 +407,9 @@ class EMDMAP(object):
     filename = property(getTitle, setTitle)
 
     def getApix(self):
-        return self.Lx / self.NS, self.Ly / self.NR, self.Lz / self.NC
+        return np.array((self.Lx / self.NS,
+                         self.Ly / self.NR,
+                         self.Lz / self.NC))
 
     def setApix(self, apix):
         if not isListLike(apix):
@@ -450,10 +452,14 @@ class EMDMAP(object):
         """Convert to a TEMPy Map."""
         try:
             from TEMPy.maps.em_map import Map
+            from TEMPy.maps.map_parser import MapParser
         except ImportError:
             raise ImportError('TEMPy needs to be installed for this functionality')
         
-        return Map(ne_map.density, ne_map.origin, ne_map.apix, ne_map.filename, ne_map_header)
+        header = MapParser.readMRCHeader(self.filename)
+        newOrigin = np.array((self.ncstart, self.nrstart, self.nsstart)) * self.apix
+        return Map(self.density, newOrigin, self.apix, self.filename, header)
+
 
 
 class TRNET(object):
