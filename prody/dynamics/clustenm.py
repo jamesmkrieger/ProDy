@@ -892,7 +892,7 @@ class ClustENM(Ensemble):
         :arg n_gens: Number of generations.
         :type n_gens: int
 
-        :arg maxclust: Maximum number of clusters for each generation, default in None.
+        :arg maxclust: Maximum number of clusters for each generation, default is None.
             A tuple of int's can be given, e.g. (10, 30, 50) for subsequent generations.
             Warning: Either maxclust or RMSD threshold should be given! For large number of
             generations and/or structures, specifying maxclust is more efficient.
@@ -1006,6 +1006,9 @@ class ClustENM(Ensemble):
 
             if len(self._threshold) != self._n_gens + 1:
                 raise ValueError('size mismatch: %d generations were set; %d thresholds were given' % (self._n_gens + 1, self._threshold))
+
+        if maxclust is None and threshold is None:
+            raise ValueError('Please set at least one of threshold and maxclust')
 
         self._sol = solvent if self._nuc is None else 'exp'
         self._padding = kwargs.pop('padding', 1.0)
