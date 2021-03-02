@@ -97,10 +97,10 @@ def calcANMMC(initial, final, **kwargs):
     else:
         accept_para = 0.1
 
-    # MC parameter 1 is the acceptance ratio, which should converge on
+    # MC parameter 1 is the acceptance ratio, f, which should converge on
     # the selected value with a tolerance of 0.05 either side
-    # and accept_para is adjusted to help bring it within these limits.
-    # This also happens every 5 steps during the run (lines 150 to 156).
+    # and accept_para, gamma, is adjusted to help bring it within these limits.
+    # This also happens every 5 steps during the run.
 
     if original_initial_pdb != original_final_pdb:
         # difference from the target structure is defined as the energy and the minimum is zero. 
@@ -164,7 +164,7 @@ def calcANMMC(initial, final, **kwargs):
 
             if (mod(k,5)==0 and not(k==0)):
                 # Update of the accept_para to keep the MC para reasonable
-                # See comment lines 86 to 89. 
+                # See comment lines above. 
                 if f > acceptance_ratio + 0.05:
                     accept_para /= 1.5
                 elif f < acceptance_ratio - 0.05:
@@ -560,16 +560,14 @@ class CoMD(Hybrid):
         else:
             confsB = self._confs[n_confsA:]
 
-        RMSDs = np.zeros((n_confs-9))
-        n = 0
+        RMSDs = []
         for i in range(n_confsA):
             for j in range(2):
-                RMSDs[n] = getRMSD(confsA[i+j], confsB[n_confsA-(i+1)])
-                n += 1
-                if i == n_confsA - 1:
+                if i + j > n_confsA - 1:
                     break
+                RMSDs.append(getRMSD(confsA[i+j], confsB[n_confsA-(i+1)], weights=weights))
 
-        return RMSDs
+        return np.array(RMSDs)
 
     def run(self, cutoff=15., n_modes=20, gamma=1., n_confs=50, rmsd=1.0,
             n_gens=5, solvent='imp', sim=False, force_field=None, temp=303.15,
