@@ -27,6 +27,8 @@ from prody.measure.measure import calcDeformVector, calcDistance
 from prody.ensemble.ensemble import Ensemble
 from prody.proteins.pdbfile import writePDBStream, parsePDBStream
 
+from prody.proteins import EMDMAP
+
 from .functions import calcENM
 from .modeset import ModeSet
 from .nma import NMA
@@ -53,8 +55,13 @@ def checkInput(a, b, **kwargs):
         title = None
         atoms = None
 
-    coordsB = getCoords(b)
-    
+    em_method = False
+    if isinstance(b, EMDMAP):
+        coordsB = b
+        em_method = True
+    else:
+        coordsB = getCoords(b)
+        
     if title is None:
         if isinstance(b, Atomic):
             title = b.getTitle()
@@ -78,10 +85,30 @@ def checkInput(a, b, **kwargs):
 
     aligned = kwargs.get('aligned', False)
     if not aligned:
-        coordsA, _ = superpose(coordsA, coordsB, weights)
+        if not em_method:
+            coordsA, _ = superpose(coordsA, coordsB, weights)
+            rmsd = calcRMSD(coordsA, coordsB, weights)
+            comp_name = 'RMSD'
+        else:
+            try:
+                from TEMPy.protein.scoring_functions import ScoringFunctions
+            except ImportError:
+                raise ImportError('TEMPy is a required package for using cryo-EM maps')
+            else:
+                # align to the EM map
+                comp_name = kwargs.get('comparator', 'CCC')
+                rmsd = 0 # change to EM based score
+                pass
+    else:
+        if not em_method:
+            rmsd = calcRMSD(coordsA, coordsB, weights)
+            comp_name = 'RMSD'
+        else:
+            comp_name = kwargs.get('comparator', 'CCC')
+            rmsd = 0 # change to EM based score
+            pass
 
-    rmsd = calcRMSD(coordsA, coordsB, weights)
-    LOGGER.info('Initialized Adaptive ANM with RMSD {:4.3f}\n'.format(rmsd))
+    LOGGER.info('Initialized Adaptive ANM with {comp_name} {rmsd:4.3f}\n'.format(comp_name=comp_name, rmsd=rmsd))
 
     return coordsA, coordsB, title, atoms, weights, maskA, maskB, rmsd
 
