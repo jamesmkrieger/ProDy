@@ -219,14 +219,26 @@ def showProjection(ensemble, modes, *args, **kwargs):
     :keyword fontsize: font size for text labels
     :type fontsize: int
 
+    :keyword probability: whether to show probability maps instead of
+        scatter plots. Default is ``False``. 
+        This option requires Seaborn and only works for 2 modes.
+    :type probability: bool
+
     The projected values are by default converted to RMSD.  Pass ``rmsd=False``
     to use projection itself.
 
     Matplotlib function used for plotting depends on the number of modes:
 
       * 1 mode: :func:`~matplotlib.pyplot.hist`
-      * 2 modes: :func:`~matplotlib.pyplot.scatter`
+      * 2 modes: :func:`~matplotlib.pyplot.scatter` or `~seaborn.kdeplot`
       * 3 modes: :meth:`~mpl_toolkits.mplot3d.Axes3D.scatter`"""
+
+    prob = kwargs.pop('probability', False)
+    if prob:
+        try:
+            from seaborn import kdeplot
+        except ImportError:
+            raise ImportError('Seaborn is needed for probability plots')
 
     import matplotlib.pyplot as plt
     import matplotlib
@@ -300,8 +312,11 @@ def showProjection(ensemble, modes, *args, **kwargs):
         indict[opts].append(i)
 
     modes = [m for m in modes]
-    if len(modes) == 2: 
-        plot = plt.plot
+    if len(modes) == 2:
+        if prob:
+            plot = kdeplot
+        else: 
+            plot = plt.plot
         show = plt.gcf()
         text = plt.text
     else: 
