@@ -333,7 +333,7 @@ class Trajectory(TrajBase):
         if unitcell is None:
             unitcell = self[0].getUnitcell()[:3]
 
-        wrapped = Trajectory(self.title + '_wrapped')
+        wrapped = Trajectory(self.getTitle() + '_wrapped')
 
         coordsets = self.getCoordsets()
 
