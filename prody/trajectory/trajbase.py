@@ -2,7 +2,7 @@
 """This module defines base class for trajectory handling."""
 
 from numbers import Integral
-from numpy import ndarray, unique
+from numpy import ndarray, unique, array
 
 from prody.ensemble import Ensemble
 from prody.utilities import checkCoords, checkWeights
@@ -370,7 +370,7 @@ class TrajBase(object):
         pass
 
 
-    def wrap(self, unitcell=None, center=np.array([0., 0., 0.])):
+    def wrap(self, unitcell=None, center=array([0., 0., 0.])):
         """Wrap atoms into an image of the system simulated under periodic boundary
         conditions for all frames and returns a new Trajectory.
 
