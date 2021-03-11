@@ -6,6 +6,8 @@ from numpy import ndarray, unique
 
 from prody.ensemble import Ensemble
 from prody.utilities import checkCoords, checkWeights
+from prody.measure import wrapAtoms
+from prody import LOGGER
 
 from .frame import Frame
 
@@ -366,3 +368,35 @@ class TrajBase(object):
         """Returns **True** if trajectory has unitcell data."""
 
         pass
+
+
+    def wrap(self, unitcell=None, center=np.array([0., 0., 0.])):
+        """Wrap atoms into an image of the system simulated under periodic boundary
+        conditions for all frames and returns a new Trajectory.
+
+        .. note::
+        This function will wrap all atoms into the specified periodic image, so
+        covalent bonds will be broken.
+
+        :arg unitcell: orthorhombic unitcell array with shape (3,)
+        :type unitcell: :class:`numpy.ndarray`
+
+        :arg center: coordinates of the center of the wrapping cell, default is
+            the origin of the Cartesian coordinate system
+        :type center: :class:`numpy.ndarray`"""
+
+        if unitcell is None:
+            unitcell = self[0].getUnitcell()[:3]
+
+        wrapped = Ensemble(self.getTitle() + '_wrapped')
+
+        coordsets = self.getCoordsets()
+
+        LOGGER.progress('Wrapping trajectory ...', len(coordsets))
+        for i, coordset in enumerate(coordsets):
+            wrapped.addCoordset(wrapAtoms(coordset), unitcell=unitcell, center=center)
+            LOGGER.update(i)
+        
+        LOGGER.finish()
+
+        return wrapped
