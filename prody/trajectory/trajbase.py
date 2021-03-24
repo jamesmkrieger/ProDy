@@ -385,16 +385,11 @@ class TrajBase(object):
             the origin of the Cartesian coordinate system
         :type center: :class:`numpy.ndarray`"""
 
-        if unitcell is None:
-            unitcell = self[0].getUnitcell()[:3]
-
         wrapped = Ensemble(self.getTitle() + '_wrapped')
 
-        coordsets = self.getCoordsets()
-
-        LOGGER.progress('Wrapping trajectory ...', len(coordsets))
-        for i, coordset in enumerate(coordsets):
-            wrapped.addCoordset(wrapAtoms(coordset), unitcell=unitcell, center=center)
+        LOGGER.progress('Wrapping trajectory ...', self.numFrames())
+        for i, frame in enumerate(self):
+            wrapped.addCoordset(wrapAtoms(frame), unitcell=unitcell, center=center)
             LOGGER.update(i)
         
         LOGGER.finish()
