@@ -71,7 +71,7 @@ def calcPerturbResponse(model, **kwargs):
 
     cov = model.getCovariance()
 
-
+    turbo = kwargs.get('turbo', False)
     if turbo:
         if not model.is3d():
             prs_matrix = cov**2
