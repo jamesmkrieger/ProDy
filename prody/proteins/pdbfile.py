@@ -1425,8 +1425,11 @@ def writePDBStream(stream, atoms, csets=None, **kwargs):
                 resnum = int(str(resnum)[:4])
             
             elif len(str(resnum)) > 5:
-                LOGGER.warn('Truncating {0}-digit resnum as too long to be '
-                            'supported by insertion code.'.format(len(str(resnum))))
+                if not warned_5_digit:
+                    LOGGER.warn('Truncating {0}-digit resnum as too long to be '
+                                'supported by insertion code.'.format(len(str(resnum))))
+                    warned_5_digit = True
+                    
                 resnum = int(str(resnum)[:4])
 
             write(pdbline % (hetero[i], serial,
