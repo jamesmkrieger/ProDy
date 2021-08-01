@@ -4,7 +4,9 @@ name: CI
 
 # Controls when the action will run. 
 on:
-  # Triggers the workflow on pull request events
+  # Triggers the workflow on push and pull request events
+  push:
+    branches: [ $default-branch ]
   pull_request:
     branches: [ $default-branch ]
 
@@ -29,19 +31,31 @@ jobs:
         python-version: ${{ matrix.python-version }}
     - name: Add conda to system path
       run: |
+<<<<<<< HEAD
         wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
         chmod +x miniconda.sh
         ./miniconda.sh -b -p $HOME/miniconda
         export PATH=$HOME/miniconda/bin:$PATH
         conda update --yes conda
+=======
+        echo $CONDA/bin >> $GITHUB_PATH
+>>>>>>> 436ce4b2b27223e0246abfc600568dda933a1aab
     - name: Install dependencies
       run: |
         conda create --yes -n test python=${{ matrix.python-version }}
         source activate test
         conda install --yes numpy scipy nose pyparsing biopython
         if [[ ${{ matrix.python-version }} == "2.7" ]]; then conda install --yes unittest2; fi
+<<<<<<< HEAD
         python setup.py build install
     - name: Test with pytest
       run: |
+=======
+        python setup.py build_ext --inplace --force
+    - name: Test with pytest
+      run: |
+        source activate test
+        conda install --yes pytest
+>>>>>>> 436ce4b2b27223e0246abfc600568dda933a1aab
         pytest
         
