@@ -1255,7 +1255,7 @@ def writePDBStream(stream, atoms, csets=None, **kwargs):
     s_or_u = np.array(['a']).dtype.char
 
     altlocs = atoms._getAltlocs()
-    if altlocs is None:
+    if altlocs is None or (altlocs == '.').all():
         altlocs = np.zeros(n_atoms, s_or_u + '1')
 
     resnames = atoms._getResnames()
