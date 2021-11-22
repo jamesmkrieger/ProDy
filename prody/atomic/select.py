@@ -454,7 +454,7 @@ from numpy import logical_and, logical_or, floor, ceil, where
 import pyparsing as pp
 try:
     from pyparsing import operatorPrecedence as operatorPrecedence
-except:
+except ImportError:
     from pyparsing import infixNotation as operatorPrecedence
 
 from prody import LOGGER, SETTINGS, PY2K
