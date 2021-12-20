@@ -193,7 +193,7 @@ def calcRWSIP(modes1, modes2):
     """Returns root weighted square inner product (RWSIP)
     of essential subspaces [VC07]_.  This function returns a single number.
 
-    .. [VC09] Carnevale V, Pontiggia F, Micheletti C. Structural and dynamical 
+    .. [VC07] Carnevale V, Pontiggia F, Micheletti C. Structural and dynamical 
        alignment of enzymes with partial structural similarity.
        *J Phys Condens Matter.* **2007** 19:285206."""
 
@@ -209,16 +209,16 @@ def calcRWSIP(modes1, modes2):
     else:
         length2 = len(modes2)
 
-    eigvecs1 = modes1.getEigvecs()
-    eigvecs2 = modes2.getEigvecs()
+    vars1 = modes1.getVariances()
+    vars2 = modes2.getVariances()
 
-    denominator = [1/(eigvecs1[l]*eigvecs2[l]) for l in range(length1)]
-
-    rwsip = np.sqrt(
-        np.sum([1/eigvecs1[l] * 1/eigvecs2[m] * np.power(overlap[l, m], 2)
-                for l in range(length1)
-                for m in range(length2)]
-               ) / denominator)
+    numerator = np.sum([vars1[l] * vars2[m] * overlap[l, m]**2
+                        for l in range(length1)
+                        for m in range(length2)])
+    
+    denominator = np.dot(vars1[:length1], vars2[:length1])
+    
+    rwsip = np.sqrt(numerator/denominator)
     return rwsip
 
 
@@ -228,7 +228,7 @@ def calcSquareInnerProduct(modes1, modes2):
 
     .. [SK02] Kundu S, Melton JS, Sorensen DC, Phillips GN: Dynamics of 
         proteins in crystals: comparison of experiment with simple models. 
-        *Biophys J.* **2002**, 83: 723-732.
+        *Biophys J.* **2002**, 83:723-732.
         
     """
     if isinstance(modes1, (NMA, ModeSet)):
