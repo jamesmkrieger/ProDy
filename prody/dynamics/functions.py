@@ -9,6 +9,7 @@ import numpy as np
 from prody import LOGGER, SETTINGS, PY3K
 from prody.atomic import Atomic, AtomSubset
 from prody.utilities import openFile, isExecutable, which, PLATFORM, addext
+from prody.proteins.starfile import parseSTAR
 
 from .nma import NMA, MaskedNMA
 from .anm import ANM, ANMBase, MaskedANM
@@ -23,7 +24,8 @@ from .modeset import ModeSet
 from .editing import sliceModel, reduceModel, trimModel
 from .editing import sliceModelByMask, reduceModelByMask, trimModelByMask
 
-__all__ = ['parseArray', 'parseModes', 'parseSparseMatrix',
+__all__ = ['parseArray', 'parseModes', 'parseContinuousFlexNMA',
+           'parseSparseMatrix',
            'writeArray', 'writeModes',
            'saveModel', 'loadModel', 'saveVector', 'loadVector',
            'calcENM']
@@ -303,6 +305,41 @@ def parseModes(normalmodes, eigenvalues=None, nm_delimiter=None,
             values = values[ev_usevalues]
     nma = NMA(splitext(split(normalmodes)[1])[0])
     nma.setEigens(modes, values)
+    return nma
+
+
+def parseContinuousFlexNMA(run_path, title=None):
+    """Returns :class:`.NMA` containing eigenvectors parsed from a ContinuousFlex FlexProtNMA Run directory.
+
+    :arg run_path: path to the Run directory
+    :type run_path: str
+    
+    :arg title: title for :class:`.NMA` object
+    :type title: str
+    """
+    proj_path = os.path.split(os.path.split(run_path)[0])[0]
+    run_name = os.path.split(run_path)[-1]
+
+    star_data = parseSTAR(run_path + '/modes.xmd')
+    star_loop = star_data[0][0]
+    
+    n_modes = star_loop.numRows()
+    
+    row1 = star_loop[0]
+    mode1 = parseArray(proj_path + '/' + row1['_nmaModefile']).reshape(-1)
+    dof = mode1.shape[0]
+
+    vectors = np.zeros((dof, n_modes))
+    vectors[:, 0] = mode1
+
+    for i, row in enumerate(star_loop[1:]):
+        vectors[:, i+1] = parseArray(proj_path + '/' + row['_nmaModefile']).reshape(-1)
+        
+    if title is None:
+        title = run_name
+
+    nma = NMA(title)
+    nma.setEigens(vectors)
     return nma
 
 
