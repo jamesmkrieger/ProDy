@@ -335,11 +335,24 @@ def parseContinuousFlexNMA(run_path, title=None):
     for i, row in enumerate(star_loop[1:]):
         vectors[:, i+1] = parseArray(proj_path + '/' + row['_nmaModefile']).reshape(-1)
         
+    eigvals = np.zeros(n_modes)
+    
+    log_fname = run_path + '/logs/run.stdout'
+    fi = open(log_fname, 'r')
+    lines = fi.readlines()
+    fi.close()
+    
+    for line in lines:
+        if line.find('Eigenvector number') != -1:
+            j = int(line.strip().split()[-1]) - 1
+        if line.find('Corresponding eigenvalue') != -1:
+            eigvals[j] = float(line.strip().split()[-1])
+        
     if title is None:
         title = run_name
 
     nma = NMA(title)
-    nma.setEigens(vectors)
+    nma.setEigens(vectors, eigvals)
     return nma
 
 
