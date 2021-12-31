@@ -8,7 +8,7 @@ import numpy as np
 
 from prody import LOGGER, SETTINGS, PY3K
 from prody.atomic import Atomic, AtomSubset
-from prody.utilities import openFile, isExecutable, which, PLATFORM, addext
+from prody.utilities import openFile, isExecutable, which, PLATFORM, addext, wrapModes
 from prody.proteins.starfile import parseSTAR
 
 from .nma import NMA, MaskedNMA
@@ -19,14 +19,14 @@ from .rtb import RTB
 from .pca import PCA, EDA
 from .imanm import imANM
 from .exanm import exANM
-from .mode import Vector, Mode
+from .mode import Vector, Mode, VectorBase
 from .modeset import ModeSet
 from .editing import sliceModel, reduceModel, trimModel
 from .editing import sliceModelByMask, reduceModelByMask, trimModelByMask
 
-__all__ = ['parseArray', 'parseModes', 'parseContinuousFlexNMA',
+__all__ = ['parseArray', 'parseModes', 'parseCFlexModes',
            'parseSparseMatrix',
-           'writeArray', 'writeModes',
+           'writeArray', 'writeModes', 'writeCFlexModes',
            'saveModel', 'loadModel', 'saveVector', 'loadVector',
            'calcENM']
 
@@ -308,8 +308,9 @@ def parseModes(normalmodes, eigenvalues=None, nm_delimiter=None,
     return nma
 
 
-def parseContinuousFlexNMA(run_path, title=None):
-    """Returns :class:`.NMA` containing eigenvectors parsed from a ContinuousFlex FlexProtNMA Run directory.
+def parseCFlexModes(run_path, title=None):
+    """Returns :class:`.NMA` containing eigenvectors and eigenvalues 
+    parsed from a ContinuousFlex FlexProtNMA Run directory.
 
     :arg run_path: path to the Run directory
     :type run_path: str
@@ -354,6 +355,36 @@ def parseContinuousFlexNMA(run_path, title=None):
     nma = NMA(title)
     nma.setEigens(vectors, eigvals)
     return nma
+
+def writeCFlexModes(output_path, modes):
+    """Writes *modes* to a set of files that can be recognised by Scipion.
+    A directory called **"modes"** will be created if it doesn't already exist. 
+    Filenames inside will start with **"vec"** and have the mode number as the extension.
+    
+    :arg output_path: path to the directory where the modes directory will be
+    :type output_path: str
+
+    :arg modes: modes to be written to files
+    :type modes: :class:`.Mode`, :class:`.ModeSet`, :class:`.NMA`
+    """
+
+    if not isinstance(modes, (NMA, ModeSet, VectorBase)):
+        raise TypeError('rows must be NMA, ModeSet, or Mode, not {0}'
+                        .format(type(modes)))
+    if not modes.is3d():
+        raise ValueError('modes must be 3-dimensional')
+
+    modes = wrapModes(modes)
+
+    modes_dir = output_path + '/modes/'
+    if not isdir(modes_dir):
+        os.mkdir(modes_dir)
+
+    for mode in modes:
+        mode_num = mode.getIndex() + 1
+        writeArray(modes_dir + 'vec.{0}'.format(mode_num), mode.getArrayNx3(), '%12.4e', '')
+
+    return modes_dir
 
 
 def writeArray(filename, array, format='%3.2f', delimiter=' '):
