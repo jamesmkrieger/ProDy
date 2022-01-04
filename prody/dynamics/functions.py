@@ -8,7 +8,10 @@ import numpy as np
 
 from prody import LOGGER, SETTINGS, PY3K
 from prody.atomic import Atomic, AtomSubset
-from prody.utilities import openFile, isExecutable, which, PLATFORM, addext
+from prody.utilities import openFile, isExecutable, which, PLATFORM, addext, wrapModes
+
+from prody.proteins.pdbfile import parsePDB
+from prody.measure.measure import calcDeformVector
 
 from .nma import NMA, MaskedNMA
 from .anm import ANM, ANMBase, MaskedANM
@@ -26,7 +29,7 @@ from .editing import sliceModelByMask, reduceModelByMask, trimModelByMask
 __all__ = ['parseArray', 'parseModes', 'parseSparseMatrix',
            'writeArray', 'writeModes',
            'saveModel', 'loadModel', 'saveVector', 'loadVector',
-           'calcENM']
+           'calcENM', 'parseGromacsModes']
 
 
 def saveModel(nma, filename=None, matrices=False, **kwargs):
@@ -521,3 +524,83 @@ def calcENM(atoms, select=None, model='anm', trim='trim', gamma=1.0,
     if mask is not None:
         enm = MaskedModel(enm, mask)
     return enm, atoms
+
+
+def parseGromacsModes(run_path, title=None, model='nma', **kwargs):
+    """Returns :class:`.NMA` containing eigenvectors and eigenvalues parsed from a run directory 
+    containing results from gmx covar or gmx nmeig followed by gmx anaeig 
+    including eigenvalues in an xvg file and eigenvectors in pdb files
+    (see http://www.strodel.info/index_files/lecture/html/analysis-9.html).
+
+    :arg run_path: path to the run directory
+    :type run_path: str
+    
+    :arg title: title for :class:`.NMA` object
+    :type title: str
+
+    :arg model: type of calculated that was performed. It can be either ``"nma"`` 
+        or ``"pca"``. If it is not changed to ``"pca"`` then ``"nma"`` will be assumed.
+    :type model: str
+
+    :arg eigval_fname: filename for xvg file containing eigenvalues
+        Default is ``"eigenval.xvg"`` as this is the default from Gromacs
+    :type eigval_fname: str
+
+    :arg eigvec_base_name: base filename for pdb files containing eigenvectors
+        Default is ``"ev"`` as in the tutorial
+    :type eigvec_fname: str
+
+    :arg title: title for resulting object
+        Default is ``""``
+    :type title: str
+    """ 
+    if not isinstance(run_path, str):
+        raise TypeError('run_path should be a string')
+
+    if not isinstance(title, str):
+        raise TypeError('title should be a string')
+
+    if model == 'pca':
+        result = PCA(title)
+    else:
+        if model != 'nma':
+            LOGGER.warn('model not recognised so using NMA')
+        result = NMA(title)
+
+    eigval_fname = kwargs.get('eigval_fname', 'eigval.xvg')
+    if not isinstance(eigval_fname, str):
+        raise TypeError('eigval_fname should be a string')
+
+    eigvec_base_name = kwargs.get('eigvec_base_name', 'ev')
+    if not isinstance(eigvec_base_name, str):
+        raise TypeError('eigvec_base_name should be a string')
+    
+    vals_fname = run_path + eigval_fname
+    fi = open(vals_fname, 'r')
+    lines = fi.readlines()
+    fi.close()
+    
+    eigvals = []
+    for line in lines:
+        if not (line.startswith('@') or line.startswith('#')):
+            eigvals.append(float(line.strip().split()[-1])*10) # convert to A/S2/N from nm/S2/N
+
+    n_modes = len(eigvals)
+    eigvals = np.array(eigvals)
+
+    ev1 = parsePDB(run_path + eigvec_base_name + '1.pdb')
+    ev1_arr = calcDeformVector(ev1.getCoordsets()[0],
+                               ev1.getCoordsets()[1]).getArray()
+    
+    dof = ev1_arr.shape[0]
+    vectors = np.zeros((dof, n_modes))
+    vectors[:, 0] = ev1_arr
+
+    for i in range(1, n_modes):
+        ev = parsePDB(run_path + eigvec_base_name + '{i+1}.pdb')
+        vectors[:, i] = calcDeformVector(ev.getCoordsets()[0],
+                                         ev.getCoordsets()[1]).getArray()
+
+    result.setEigens(vectors, eigvals)
+
+    return result
