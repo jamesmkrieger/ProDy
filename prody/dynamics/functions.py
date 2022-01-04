@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 """This module defines input and output functions."""
 
+from collections import OrderedDict
+
 import os
 from os.path import abspath, join, isfile, isdir, split, splitext
 
@@ -8,23 +10,26 @@ import numpy as np
 
 from prody import LOGGER, SETTINGS, PY3K
 from prody.atomic import Atomic, AtomSubset
-from prody.utilities import openFile, isExecutable, which, PLATFORM, addext
+from prody.utilities import openFile, isExecutable, which, PLATFORM, addext, wrapModes
+from prody.proteins.starfile import parseSTAR, writeSTAR
 
 from .nma import NMA, MaskedNMA
 from .anm import ANM, ANMBase, MaskedANM
+from .analysis import calcCollectivity
 from .gnm import GNM, GNMBase, ZERO, MaskedGNM
 from .exanm import exANM, MaskedExANM
 from .rtb import RTB
 from .pca import PCA, EDA
 from .imanm import imANM
 from .exanm import exANM
-from .mode import Vector, Mode
+from .mode import Vector, Mode, VectorBase
 from .modeset import ModeSet
 from .editing import sliceModel, reduceModel, trimModel
 from .editing import sliceModelByMask, reduceModelByMask, trimModelByMask
 
-__all__ = ['parseArray', 'parseModes', 'parseSparseMatrix',
-           'writeArray', 'writeModes',
+__all__ = ['parseArray', 'parseModes', 'parseCFlexModes',
+           'parseSparseMatrix',
+           'writeArray', 'writeModes', 'writeCFlexModes',
            'saveModel', 'loadModel', 'saveVector', 'loadVector',
            'calcENM']
 
@@ -304,6 +309,122 @@ def parseModes(normalmodes, eigenvalues=None, nm_delimiter=None,
     nma = NMA(splitext(split(normalmodes)[1])[0])
     nma.setEigens(modes, values)
     return nma
+
+
+def parseCFlexModes(run_path, title=None):
+    """Returns :class:`.NMA` containing eigenvectors and eigenvalues 
+    parsed from a ContinuousFlex FlexProtNMA Run directory.
+
+    :arg run_path: path to the Run directory
+    :type run_path: str
+    
+    :arg title: title for :class:`.NMA` object
+    :type title: str
+    """
+    proj_path = os.path.split(os.path.split(run_path)[0])[0]
+    run_name = os.path.split(run_path)[-1]
+
+    star_data = parseSTAR(run_path + '/modes.xmd')
+    star_loop = star_data[0][0]
+    
+    n_modes = star_loop.numRows()
+    
+    row1 = star_loop[0]
+    mode1 = parseArray(proj_path + '/' + row1['_nmaModefile']).reshape(-1)
+    dof = mode1.shape[0]
+
+    vectors = np.zeros((dof, n_modes))
+    vectors[:, 0] = mode1
+
+    for i, row in enumerate(star_loop[1:]):
+        vectors[:, i+1] = parseArray(proj_path + '/' + row['_nmaModefile']).reshape(-1)
+        
+    eigvals = np.zeros(n_modes)
+    
+    log_fname = run_path + '/logs/run.stdout'
+    fi = open(log_fname, 'r')
+    lines = fi.readlines()
+    fi.close()
+    
+    for line in lines:
+        if line.find('Eigenvector number') != -1:
+            j = int(line.strip().split()[-1]) - 1
+        if line.find('Corresponding eigenvalue') != -1:
+            eigvals[j] = float(line.strip().split()[-1])
+        
+    if title is None:
+        title = run_name
+
+    nma = NMA(title)
+    nma.setEigens(vectors, eigvals)
+    return nma
+
+def writeCFlexModes(output_path, modes):
+    """Writes *modes* to a set of files that can be recognised by Scipion.
+    A directory called **"modes"** will be created if it doesn't already exist. 
+    Filenames inside will start with **"vec"** and have the mode number as the extension.
+    
+    :arg output_path: path to the directory where the modes directory will be
+    :type output_path: str
+
+    :arg modes: modes to be written to files
+    :type modes: :class:`.Mode`, :class:`.ModeSet`, :class:`.NMA`
+    """
+
+    if not isinstance(modes, (NMA, ModeSet, VectorBase)):
+        raise TypeError('rows must be NMA, ModeSet, or Mode, not {0}'
+                        .format(type(modes)))
+    if not modes.is3d():
+        raise ValueError('modes must be 3-dimensional')
+
+    if modes.numModes() == 1:
+        modes = wrapModes(modes)
+
+    modes_dir = output_path + '/modes/'
+    if not isdir(modes_dir):
+        os.mkdir(modes_dir)
+
+    modefiles = []
+    for mode in modes:
+        mode_num = mode.getIndex() + 1
+        modefiles.append(writeArray(modes_dir + 'vec.{0}'.format(mode_num),
+                                     mode.getArrayNx3(), '%12.4e', ''))
+
+    if hasattr(modes, 'getIndices'):
+        order = modes.getIndices()
+        enabled = [1 if eigval > ZERO else -1 for eigval in modes.getEigvals()]
+        #scores = [None for eigval in modes.getEigvals()]
+        collectivities = list(calcCollectivity(modes))
+    else:
+        mode = modes[0]
+        order = [mode.getIndex()]
+        enabled = [1 if mode.getEigval() > ZERO else -1]
+        #scores = [None]
+        collectivities = [calcCollectivity(mode)]
+
+    star_dict = OrderedDict()
+
+    star_dict['noname'] = OrderedDict() # Data Block with title noname
+    loop_dict = star_dict['noname'][0] = OrderedDict() # Loop 0
+
+    loop_dict['fields'] = OrderedDict()
+    fields = ['_enabled', '_nmaCollectivity', '_nmaModefile', #'_nmaScore',
+              '_order_']
+    for j, field in enumerate(fields):
+        loop_dict['fields'][j] = field
+
+    loop_dict['data'] = OrderedDict()
+    for i, mode in enumerate(modes):
+        loop_dict['data'][i] = OrderedDict()
+        loop_dict['data'][i]['_enabled'] = '%2i' % enabled[i]
+        loop_dict['data'][i]['_nmaCollectivity'] = '%8.6f' % collectivities[i]
+        loop_dict['data'][i]['_nmaModefile'] = modefiles[i]
+        #loop_dict['data'][i]['_nmaScore'] = scores[i]
+        loop_dict['data'][i]['_order_'] = str(mode.getIndex() + 1)
+
+    writeSTAR('modes.xmd', star_dict)
+
+    return modes_dir
 
 
 def writeArray(filename, array, format='%3.2f', delimiter=' '):
