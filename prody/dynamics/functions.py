@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 """This module defines input and output functions."""
 
+from collections import OrderedDict
+
 import os
 from os.path import abspath, join, isfile, isdir, split, splitext
 
@@ -9,10 +11,11 @@ import numpy as np
 from prody import LOGGER, SETTINGS, PY3K
 from prody.atomic import Atomic, AtomSubset
 from prody.utilities import openFile, isExecutable, which, PLATFORM, addext, wrapModes
-from prody.proteins.starfile import parseSTAR
+from prody.proteins.starfile import parseSTAR, writeSTAR
 
 from .nma import NMA, MaskedNMA
 from .anm import ANM, ANMBase, MaskedANM
+from .analysis import calcCollectivity
 from .gnm import GNM, GNMBase, ZERO, MaskedGNM
 from .exanm import exANM, MaskedExANM
 from .rtb import RTB
@@ -374,15 +377,52 @@ def writeCFlexModes(output_path, modes):
     if not modes.is3d():
         raise ValueError('modes must be 3-dimensional')
 
-    modes = wrapModes(modes)
+    if modes.numModes() == 1:
+        modes = wrapModes(modes)
 
     modes_dir = output_path + '/modes/'
     if not isdir(modes_dir):
         os.mkdir(modes_dir)
 
+    modefiles = []
     for mode in modes:
         mode_num = mode.getIndex() + 1
-        writeArray(modes_dir + 'vec.{0}'.format(mode_num), mode.getArrayNx3(), '%12.4e', '')
+        modefiles.append(writeArray(modes_dir + 'vec.{0}'.format(mode_num),
+                                     mode.getArrayNx3(), '%12.4e', ''))
+
+    if hasattr(modes, 'getIndices'):
+        order = modes.getIndices()
+        enabled = [1 if eigval > ZERO else -1 for eigval in modes.getEigvals()]
+        #scores = [None for eigval in modes.getEigvals()]
+        collectivities = list(calcCollectivity(modes))
+    else:
+        mode = modes[0]
+        order = [mode.getIndex()]
+        enabled = [1 if mode.getEigval() > ZERO else -1]
+        #scores = [None]
+        collectivities = [calcCollectivity(mode)]
+
+    star_dict = OrderedDict()
+
+    star_dict['noname'] = OrderedDict() # Data Block with title noname
+    loop_dict = star_dict['noname'][0] = OrderedDict() # Loop 0
+
+    loop_dict['fields'] = OrderedDict()
+    fields = ['_enabled', '_nmaCollectivity', '_nmaModefile', #'_nmaScore',
+              '_order_']
+    for j, field in enumerate(fields):
+        loop_dict['fields'][j] = field
+
+    loop_dict['data'] = OrderedDict()
+    for i, mode in enumerate(modes):
+        loop_dict['data'][i] = OrderedDict()
+        loop_dict['data'][i]['_enabled'] = '%2i' % enabled[i]
+        loop_dict['data'][i]['_nmaCollectivity'] = '%8.6f' % collectivities[i]
+        loop_dict['data'][i]['_nmaModefile'] = modefiles[i]
+        #loop_dict['data'][i]['_nmaScore'] = scores[i]
+        loop_dict['data'][i]['_order_'] = str(mode.getIndex() + 1)
+
+    writeSTAR('modes.xmd', star_dict)
 
     return modes_dir
 
