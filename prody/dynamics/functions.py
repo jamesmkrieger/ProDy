@@ -31,7 +31,7 @@ __all__ = ['parseArray', 'parseModes', 'parseCFlexModes',
            'parseSparseMatrix',
            'writeArray', 'writeModes', 'writeCFlexModes',
            'saveModel', 'loadModel', 'saveVector', 'loadVector',
-           'calcENM']
+           'calcENM', 'parseGromacsModes']
 
 
 def saveModel(nma, filename=None, matrices=False, **kwargs):
@@ -642,3 +642,64 @@ def calcENM(atoms, select=None, model='anm', trim='trim', gamma=1.0,
     if mask is not None:
         enm = MaskedModel(enm, mask)
     return enm, atoms
+
+
+def parseGromacsModes(run_path, title=None, model='nma'):
+    """Returns :class:`.NMA` containing eigenvectors and eigenvalues 
+    parsed from a gmx covar or gmx nmeig run directory.
+
+    :arg run_path: path to the run directory
+    :type run_path: str
+    
+    :arg title: title for :class:`.NMA` object
+    :type title: str
+
+    :arg model: type of calculated that was performed. It can be either ``"nma"`` 
+        or ``"pca"``. If it is not changed to ``"pca"`` then ``"nma"`` will be assumed.
+    :type model: str
+
+    VECTORS PART STILL NEEDS TO BE ADAPTED FROM CONTINUOUS FLEX VERSION
+    """
+    proj_path = os.path.split(os.path.split(run_path)[0])[0]
+    run_name = os.path.split(run_path)[-1]
+
+    star_data = parseSTAR(run_path + '/modes.xmd')
+    star_loop = star_data[0][0]
+    
+    n_modes = star_loop.numRows()
+    
+    row1 = star_loop[0]
+    mode1 = parseArray(proj_path + '/' + row1['_nmaModefile']).reshape(-1)
+    dof = mode1.shape[0]
+
+    vectors = np.zeros((dof, n_modes))
+    vectors[:, 0] = mode1
+
+    for i, row in enumerate(star_loop[1:]):
+        vectors[:, i+1] = parseArray(proj_path + '/' + row['_nmaModefile']).reshape(-1)
+        
+    eigvals = np.zeros(n_modes)
+    
+    vals_fname = run_path + '/eigenvalues.xvg'
+    fi = open(vals_fname, 'r')
+    lines = fi.readlines()
+    fi.close()
+    
+    for line in lines:
+        if not (line.startswith('@') or line.startswith('#')):
+            j = int(line.strip().split()[0]) - 1
+            eigvals[j] = float(line.strip().split()[-1])*10 # convert to A/S2/N from nm/S2/N
+        
+    if title is None:
+        title = run_name
+
+    if model == 'pca':
+        result = PCA(title)
+    else:
+        if model != 'nma':
+            LOGGER.warn('model not recognised so using NMA')
+        result = NMA(title)
+
+    result.setEigens(vectors, eigvals)
+
+    return result
