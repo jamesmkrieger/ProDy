@@ -2,6 +2,7 @@
 """This module defines input and output functions."""
 
 from collections import OrderedDict
+import datetime
 
 import os
 from os.path import abspath, join, isfile, isdir, split, splitext
@@ -10,7 +11,7 @@ import numpy as np
 
 from prody import LOGGER, SETTINGS, PY3K
 from prody.atomic import Atomic, AtomSubset
-from prody.utilities import openFile, isExecutable, which, PLATFORM, addext, wrapModes
+from prody.utilities import openFile, openSQLite, isExecutable, which, PLATFORM, addext, wrapModes
 from prody.proteins.starfile import parseSTAR, writeSTAR
 
 from .nma import NMA, MaskedNMA
@@ -393,15 +394,35 @@ def writeCFlexModes(output_path, modes):
     if hasattr(modes, 'getIndices'):
         order = modes.getIndices()
         enabled = [1 if eigval > ZERO else -1 for eigval in modes.getEigvals()]
-        #scores = [None for eigval in modes.getEigvals()]
+        scores = [0. for eigval in modes.getEigvals()]
         collectivities = list(calcCollectivity(modes))
     else:
         mode = modes[0]
         order = [mode.getIndex()]
         enabled = [1 if mode.getEigval() > ZERO else -1]
-        #scores = [None]
+        scores = [0.]
         collectivities = [calcCollectivity(mode)]
 
+    modes_sqlite_fn = output_path + '/modes.sqlite'
+    sql_con = openSQLite(modes_sqlite_fn, 'n')
+    cursor = sql_con.cursor()
+    
+    cursor.execute('''CREATE TABLE Properties(key,value)''')
+    properties = [('self', 'SetOfNormalModes'),
+                  ('_size', str(modes.numModes())),
+                  ('_streamState', '2'),
+                  ('_mapperPath', '{0}, '.format(modes_sqlite_fn))]
+    cursor.executemany('''INSERT INTO Properties VALUES(?,?);''', properties);
+    
+    cursor.execute('''CREATE TABLE Classes(id,label_property,column_name,class_name)''')
+    classes = [(1, 'self', 'c00', 'NormalMode'),
+                  (2, '_modeFile', 'c01', 'String'),
+                  (3, '_collectivity', 'c02', 'Float'),
+                  (4, '_score', 'c03', 'Float')]
+    cursor.executemany('''INSERT INTO Classes VALUES(?,?,?,?);''', classes);
+    
+    cursor.execute('''CREATE TABLE Objects(id,enabled,label,comment,creation,c01,c02,c03)''')
+    
     star_dict = OrderedDict()
 
     star_dict['noname'] = OrderedDict() # Data Block with title noname
@@ -414,15 +435,38 @@ def writeCFlexModes(output_path, modes):
         loop_dict['fields'][j] = field
 
     loop_dict['data'] = OrderedDict()
+
+    now = datetime.datetime.now()    
+    creation = now.strftime("%Y-%m-%d %H:%M:%S")
     for i, mode in enumerate(modes):
         loop_dict['data'][i] = OrderedDict()
-        loop_dict['data'][i]['_enabled'] = '%2i' % enabled[i]
-        loop_dict['data'][i]['_nmaCollectivity'] = '%8.6f' % collectivities[i]
-        loop_dict['data'][i]['_nmaModefile'] = modefiles[i]
-        #loop_dict['data'][i]['_nmaScore'] = scores[i]
-        loop_dict['data'][i]['_order_'] = str(mode.getIndex() + 1)
+        
+        id = str(mode.getIndex() + 1)
+        loop_dict['data'][i]['_order_'] = str(id)
+        
+        enab = enabled[i]
+        loop_dict['data'][i]['_enabled'] = '%2i' % enab
+        if enab != 1:
+            enab = 0
+            
+        label = ''
+        comment = ''
+        
+        c01 = loop_dict['data'][i]['_nmaModefile'] = modefiles[i]
+        
+        collec = collectivities[i]
+        loop_dict['data'][i]['_nmaCollectivity'] = '%8.6f' % collec
+        c02 = float('%6.4f' % collec)
+        
+        c03 = scores[i]
+        loop_dict['data'][i]['_nmaScore'] = '%8.6f' % c03
+        
+        cursor.execute('''INSERT INTO Objects VALUES(?,?,?,?,?,?,?,?)''',
+                       (id, enab, label, comment, creation, c01, c02, c03))
 
-    writeSTAR('modes.xmd', star_dict)
+    writeSTAR(output_path + '/modes.xmd', star_dict)
+    sql_con.commit()
+    sql_con.close()
 
     return modes_dir
 
