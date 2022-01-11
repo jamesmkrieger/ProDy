@@ -7,11 +7,11 @@ from os.path import abspath, join, isfile, isdir, split, splitext
 import numpy as np
 
 from prody import LOGGER, SETTINGS, PY3K
-from prody.atomic import Atomic, AtomSubset
+from prody.atomic import Atomic, AtomSubset, sliceAtoms
 from prody.utilities import openFile, isExecutable, which, PLATFORM, addext, wrapModes
 
-from prody.proteins.pdbfile import parsePDB
-from prody.measure.measure import calcDeformVector
+from prody.proteins import parsePDB, alignChains
+from prody.measure import calcDeformVector, superpose, applyTransformation
 
 from .nma import NMA, MaskedNMA
 from .anm import ANM, ANMBase, MaskedANM
@@ -553,6 +553,15 @@ def parseGromacsModes(run_path, title=None, model='nma', **kwargs):
     :arg title: title for resulting object
         Default is ``""``
     :type title: str
+
+    :arg ref_pdb: filename or :class:`.Atomic` for a reference structure for alignment
+        This may add dummy atoms with zero motion.
+        Default is **None**
+    :type ref_pdb: str, :class:`.Atomic`
+
+    :arg select: a :class:`.Selection` instance or selection string
+        Default is ``"all"``
+    :type select: :class:`.Selection`, str
     """ 
     if not isinstance(run_path, str):
         raise TypeError('run_path should be a string')
@@ -574,6 +583,23 @@ def parseGromacsModes(run_path, title=None, model='nma', **kwargs):
     eigvec_base_name = kwargs.get('eigvec_base_name', 'ev')
     if not isinstance(eigvec_base_name, str):
         raise TypeError('eigvec_base_name should be a string')
+
+    select = kwargs.get('select', 'all')
+    if not isinstance(select, (str, AtomSubset)):
+        raise TypeError('select should be a string or Selection instance')
+
+    ref_pdb = kwargs.get('ref_pdb', None)
+    if ref_pdb is not None:
+        if not isinstance(ref_pdb, Atomic):
+            try:
+                ref_pdb = parsePDB(ref_pdb)
+            except:
+                try:
+                    ref_pdb = parsePDB(run_path + ref_pdb)
+                except:
+                    raise TypeError('ref_pdb should be a filename or Atomic instance')
+    
+    _, ref_pdb = sliceAtoms(ref_pdb, select)
     
     vals_fname = run_path + eigval_fname
     fi = open(vals_fname, 'r')
@@ -589,6 +615,13 @@ def parseGromacsModes(run_path, title=None, model='nma', **kwargs):
     eigvals = np.array(eigvals)
 
     ev1 = parsePDB(run_path + eigvec_base_name + '1.pdb')
+    indices, ev1 = sliceAtoms(ev1, select)
+
+    if ref_pdb is not None:
+        ev1_am = alignChains(ev1, ref_pdb)[0]
+        ev1_am_alg, T = superpose(ev1_am, ref_pdb, weights=ev1_am.getFlags("mapped"))
+        #ev1 = applyTransformation(T, ev1)
+        
     ev1_arr = calcDeformVector(ev1.getCoordsets()[0],
                                ev1.getCoordsets()[1]).getArray()
     
@@ -598,6 +631,13 @@ def parseGromacsModes(run_path, title=None, model='nma', **kwargs):
 
     for i in range(1, n_modes):
         ev = parsePDB(run_path + eigvec_base_name + '{0}.pdb'.format(i+1))
+        ev = ev[indices]
+
+        ev_am = alignChains(ev, ref_pdb)[0]
+        ev_am_alg, T = superpose(ev_am, ref_pdb, weights=ev_am.getFlags("mapped"))
+
+        #ev = applyTransformation(T, ev)
+
         vectors[:, i] = calcDeformVector(ev.getCoordsets()[0],
                                          ev.getCoordsets()[1]).getArray()
 
