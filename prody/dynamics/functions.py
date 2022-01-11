@@ -10,9 +10,11 @@ from os.path import abspath, join, isfile, isdir, split, splitext
 import numpy as np
 
 from prody import LOGGER, SETTINGS, PY3K
-from prody.atomic import Atomic, AtomSubset
+from prody.atomic import Atomic, AtomSubset, sliceAtoms
 from prody.utilities import openFile, openSQLite, isExecutable, which, PLATFORM, addext, wrapModes
-from prody.proteins.starfile import parseSTAR, writeSTAR
+
+from prody.proteins import parsePDB, alignChains
+from prody.measure import calcDeformVector, superpose, applyTransformation
 
 from .nma import NMA, MaskedNMA
 from .anm import ANM, ANMBase, MaskedANM
@@ -688,9 +690,11 @@ def calcENM(atoms, select=None, model='anm', trim='trim', gamma=1.0,
     return enm, atoms
 
 
-def parseGromacsModes(run_path, title=None, model='nma'):
-    """Returns :class:`.NMA` containing eigenvectors and eigenvalues 
-    parsed from a gmx covar or gmx nmeig run directory.
+def parseGromacsModes(run_path, title=None, model='nma', **kwargs):
+    """Returns :class:`.NMA` containing eigenvectors and eigenvalues parsed from a run directory 
+    containing results from gmx covar or gmx nmeig followed by gmx anaeig 
+    including eigenvalues in an xvg file and eigenvectors in pdb files
+    (see http://www.strodel.info/index_files/lecture/html/analysis-9.html).
 
     :arg run_path: path to the run directory
     :type run_path: str
@@ -702,40 +706,32 @@ def parseGromacsModes(run_path, title=None, model='nma'):
         or ``"pca"``. If it is not changed to ``"pca"`` then ``"nma"`` will be assumed.
     :type model: str
 
-    VECTORS PART STILL NEEDS TO BE ADAPTED FROM CONTINUOUS FLEX VERSION
-    """
-    proj_path = os.path.split(os.path.split(run_path)[0])[0]
-    run_name = os.path.split(run_path)[-1]
+    :arg eigval_fname: filename for xvg file containing eigenvalues
+        Default is ``"eigenval.xvg"`` as this is the default from Gromacs
+    :type eigval_fname: str
 
-    star_data = parseSTAR(run_path + '/modes.xmd')
-    star_loop = star_data[0][0]
-    
-    n_modes = star_loop.numRows()
-    
-    row1 = star_loop[0]
-    mode1 = parseArray(proj_path + '/' + row1['_nmaModefile']).reshape(-1)
-    dof = mode1.shape[0]
+    :arg eigvec_base_name: base filename for pdb files containing eigenvectors
+        Default is ``"ev"`` as in the tutorial
+    :type eigvec_fname: str
 
-    vectors = np.zeros((dof, n_modes))
-    vectors[:, 0] = mode1
+    :arg title: title for resulting object
+        Default is ``""``
+    :type title: str
 
-    for i, row in enumerate(star_loop[1:]):
-        vectors[:, i+1] = parseArray(proj_path + '/' + row['_nmaModefile']).reshape(-1)
-        
-    eigvals = np.zeros(n_modes)
-    
-    vals_fname = run_path + '/eigenvalues.xvg'
-    fi = open(vals_fname, 'r')
-    lines = fi.readlines()
-    fi.close()
-    
-    for line in lines:
-        if not (line.startswith('@') or line.startswith('#')):
-            j = int(line.strip().split()[0]) - 1
-            eigvals[j] = float(line.strip().split()[-1])*10 # convert to A/S2/N from nm/S2/N
-        
-    if title is None:
-        title = run_name
+    :arg ref_pdb: filename or :class:`.Atomic` for a reference structure for alignment
+        This may add dummy atoms with zero motion.
+        Default is **None**
+    :type ref_pdb: str, :class:`.Atomic`
+
+    :arg select: a :class:`.Selection` instance or selection string
+        Default is ``"all"``
+    :type select: :class:`.Selection`, str
+    """ 
+    if not isinstance(run_path, str):
+        raise TypeError('run_path should be a string')
+
+    if not isinstance(title, str):
+        raise TypeError('title should be a string')
 
     if model == 'pca':
         result = PCA(title)
@@ -743,6 +739,71 @@ def parseGromacsModes(run_path, title=None, model='nma'):
         if model != 'nma':
             LOGGER.warn('model not recognised so using NMA')
         result = NMA(title)
+
+    eigval_fname = kwargs.get('eigval_fname', 'eigval.xvg')
+    if not isinstance(eigval_fname, str):
+        raise TypeError('eigval_fname should be a string')
+
+    eigvec_base_name = kwargs.get('eigvec_base_name', 'ev')
+    if not isinstance(eigvec_base_name, str):
+        raise TypeError('eigvec_base_name should be a string')
+
+    select = kwargs.get('select', 'all')
+    if not isinstance(select, (str, AtomSubset)):
+        raise TypeError('select should be a string or Selection instance')
+
+    ref_pdb = kwargs.get('ref_pdb', None)
+    if ref_pdb is not None:
+        if not isinstance(ref_pdb, Atomic):
+            try:
+                ref_pdb = parsePDB(ref_pdb)
+            except:
+                try:
+                    ref_pdb = parsePDB(run_path + ref_pdb)
+                except:
+                    raise TypeError('ref_pdb should be a filename or Atomic instance')
+    
+    _, ref_pdb = sliceAtoms(ref_pdb, select)
+    
+    vals_fname = run_path + eigval_fname
+    fi = open(vals_fname, 'r')
+    lines = fi.readlines()
+    fi.close()
+    
+    eigvals = []
+    for line in lines:
+        if not (line.startswith('@') or line.startswith('#')):
+            eigvals.append(float(line.strip().split()[-1])*10) # convert to A/S2/N from nm/S2/N
+
+    n_modes = len(eigvals)
+    eigvals = np.array(eigvals)
+
+    ev1 = parsePDB(run_path + eigvec_base_name + '1.pdb')
+    indices, ev1 = sliceAtoms(ev1, select)
+
+    if ref_pdb is not None:
+        ev1_am = alignChains(ev1, ref_pdb)[0]
+        ev1_am_alg, T = superpose(ev1_am, ref_pdb, weights=ev1_am.getFlags("mapped"))
+        #ev1 = applyTransformation(T, ev1)
+        
+    ev1_arr = calcDeformVector(ev1.getCoordsets()[0],
+                               ev1.getCoordsets()[1]).getArray()
+    
+    dof = ev1_arr.shape[0]
+    vectors = np.zeros((dof, n_modes))
+    vectors[:, 0] = ev1_arr
+
+    for i in range(1, n_modes):
+        ev = parsePDB(run_path + eigvec_base_name + '{0}.pdb'.format(i+1))
+        ev = ev[indices]
+
+        ev_am = alignChains(ev, ref_pdb)[0]
+        ev_am_alg, T = superpose(ev_am, ref_pdb, weights=ev_am.getFlags("mapped"))
+
+        #ev = applyTransformation(T, ev)
+
+        vectors[:, i] = calcDeformVector(ev.getCoordsets()[0],
+                                         ev.getCoordsets()[1]).getArray()
 
     result.setEigens(vectors, eigvals)
 
