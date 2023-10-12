@@ -421,8 +421,12 @@ def pystr(a):
     return b
 
 def getDataPath(filename):
-    import pkg_resources
-    return pkg_resources.resource_filename('prody.utilities', 'datafiles/%s'%filename)
+    try:
+        import pkg_resources
+        return pkg_resources.resource_filename('prody.utilities', 'datafiles/%s'%filename)
+    except:
+        import importlib
+        return importlib.resources.files('prody.utilities.datafiles') + '/' + filename
 
 def openData(filename, mode='r'):
     return open(getDataPath(filename), mode)
