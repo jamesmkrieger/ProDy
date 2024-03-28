@@ -45,7 +45,8 @@ for key, txt, val in [
     ('fitmap', 'map to fit by filtering conformations like MDeNMD-EMFit', None),
     ('fit_resolution', 'resolution for blurring structures for fitting cc', 5),
     ('map_cutoff', 'min_cutoff for passing map for fitting', 0),
-    ('replace_filtered', 'whether to keep sampling again to replace filtered conformers', False)]:
+    ('replace_filtered', 'whether to keep sampling again to replace filtered conformers', False),
+    ('platform', 'openmm platform (OpenCL, CUDA, CPU or None)', None)]:
 
     DEFAULTS[key] = val
     HELPTEXT[key] = txt
@@ -86,6 +87,7 @@ def prody_clustenm(pdb, **kwargs):
     model = kwargs.pop('model')
     altloc = kwargs.pop('altloc')
     turbo = kwargs.pop('turbo')
+    nproc = kwargs.pop('nproc')
 
     ngens = kwargs.pop('ngens')
     nconfs = kwargs.pop('nconfs')
@@ -142,36 +144,20 @@ def prody_clustenm(pdb, **kwargs):
         except TypeError:
             raise TypeError("Please provide cutoff as a float or equation using math")
 
-    nproc = kwargs.get('nproc')
-    if nproc:
-            ens = prody.ClustENM(pdb.getTitle())
-            ens.setAtoms(select)
-            ens.run(n_gens=ngens, n_modes=nmodes,
-                    n_confs=nconfs, rmsd=eval(rmsd),
-                    cutoff=cutoff, gamma=gamma,
-                    maxclust=eval(maxclust), threshold=eval(threshold),
-                    solvent=solvent, force_field=eval(forcefield),
-                    sim=sim, temp=temp, t_steps_i=t_steps_i,
-                    t_steps_g=eval(t_steps_g),
-                    outlier=outlier, mzscore=mzscore,
-                    sparse=sparse, kdtree=kdtree, turbo=turbo,
-                    parallel=parallel, fitmap=fitmap,
-                    fit_resolution=fit_resolution, 
-                    n_proc=nproc, **kwargs)
-    else:
-        ens = prody.ClustENM(pdb.getTitle())
-        ens.setAtoms(select)
-        ens.run(n_gens=ngens, n_modes=nmodes,
-                n_confs=nconfs, rmsd=eval(rmsd),
-                cutoff=cutoff, gamma=gamma,
-                maxclust=eval(maxclust), threshold=eval(threshold),
-                solvent=solvent, force_field=eval(forcefield),
-                sim=sim, temp=temp, t_steps_i=t_steps_i,
-                t_steps_g=eval(t_steps_g),
-                outlier=outlier, mzscore=mzscore,
-                sparse=sparse, kdtree=kdtree, turbo=turbo,
-                parallel=parallel, fitmap=fitmap,
-                fit_resolution=fit_resolution, **kwargs)
+    ens = prody.ClustENM(pdb.getTitle())
+    ens.setAtoms(select)
+    ens.run(n_gens=ngens, n_modes=nmodes,
+            n_confs=nconfs, rmsd=eval(rmsd),
+            cutoff=cutoff, gamma=gamma,
+            maxclust=eval(maxclust), threshold=eval(threshold),
+            solvent=solvent, force_field=eval(forcefield),
+            sim=sim, temp=temp, t_steps_i=t_steps_i,
+            t_steps_g=eval(t_steps_g),
+            outlier=outlier, mzscore=mzscore,
+            sparse=sparse, kdtree=kdtree, turbo=turbo,
+            parallel=parallel, fitmap=fitmap, 
+            fit_resolution=fit_resolution,
+            nproc=nproc, **kwargs)
 
     single = not kwargs.pop('multiple')
     outname = join(outdir, prefix)
@@ -348,10 +334,14 @@ graphical output files:
     group.add_argument('-u', '--map_cutoff', dest='map_cutoff', type=float,
         default=DEFAULTS['map_cutoff'], metavar='FLOAT',
         help=HELPTEXT['map_cutoff'] + ' (default: %(default)s)')
-    
+
     group.add_argument('-O', '--replace_filtered', dest='replace_filtered',
         action='store_true',
         default=DEFAULTS['replace_filtered'], help=HELPTEXT['replace_filtered'])
+
+    group.add_argument('-V', '--platform', dest='platform', type=str,
+        default=DEFAULTS['platform'], metavar='STR',
+        help=HELPTEXT['platform'] + ' (default: %(default)s)')
 
     subparser.add_argument('pdb', help='PDB identifier or filename')
 

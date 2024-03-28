@@ -167,6 +167,12 @@ DATA_FILES = {
     'pca2k39_vectors': {
         'file': 'pca2k39_vectors.dat'
     },
+    'lda2k39_evalues': {
+        'file': 'lda2k39_evalues.dat',
+    },
+    'lda2k39_vectors': {
+        'file': 'lda2k39_vectors.dat'
+    },
     'commute1ubi': {
         'file': 'commute1ubi.dat'
     },
@@ -196,6 +202,9 @@ DATA_FILES = {
     },
     'MSA': {
         'file': 'msa_3hsyA_3o21A.fasta'
+    },
+    'MSA_MEW': {
+        'file': 'msa_3hsyA_3o21A_new.fasta'
     },
     'RTER': {
         'file': 'pdbRTER.pdb'
@@ -244,6 +253,16 @@ DATA_FILES = {
         'file': 'mmcif_6zu5.cif',
         'atoms': 165175,
         'segment_SX0_atoms': 1089,
+    },
+    '6zu5_sel': {
+        'pdb': '6zu5',
+        'file': '6zu5_sel_SE0_SF0_10-20.pdb',
+        'atoms': 22,
+        'segment_SF0_atoms': 11,
+        'chid_order': ['Z', 'Z', 'Z', 'Z', 'Z', 'Z', 'Z', 'Z', 'Z', 'Z', 'Z',
+                       'B', 'B', 'B', 'B', 'B', 'B', 'B', 'B', 'B', 'B', 'B'],
+        'sorted_order': ['B', 'B', 'B', 'B', 'B', 'B', 'B', 'B', 'B', 'B', 'B',
+                         'Z', 'Z', 'Z', 'Z', 'Z', 'Z', 'Z', 'Z', 'Z', 'Z', 'Z']
     },
     '3hsy': {
         'pdb': '3hsy',
@@ -358,6 +377,11 @@ DATA_FILES = {
     'pdb1ake': {
         'file': 'pdb1ake.pdb'
     },
+    'pdb7pbl': {
+        'file': 'pdb7pbl.pdb',
+        'atoms': 31396,
+        'nucleoside': 252
+    }
 }
 
 
