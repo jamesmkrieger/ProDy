@@ -184,8 +184,8 @@ def loadEnsemble(filename, **kwargs):
                     '_sim', '_temp', '_t_steps', '_outlier', '_mzscore', '_v1',
                     '_parallel', '_idx_ca', '_n_ca', '_cycle', '_time', '_targeted',
                     '_tmdk', '_cc']
-            if have_openmm:
-                attrs.extend(['_topology', '_position'])
+        if have_openmm:
+            attrs.extend(['_topology', '_position'])
             
             for attr in attrs:
                 if attr in attr_dict.files:
