@@ -300,10 +300,10 @@ class PDBEnsemble(Ensemble):
         # check weights
         if weights is None:
             weights = np.ones((n_csets, n_atoms, 1), dtype=float)
-            if isinstance(atoms, Atomic):
-                if np.all(atoms.getOccupancies() <= 1.):
-                    weights = atoms.getOccupancies()
-        else:
+            if isinstance(atoms, Atomic) and np.all(atoms.getOccupancies() <= 1.):
+                weights = atoms.getOccupancies()
+
+        if weights is not None:
             weights = checkWeights(weights, n_atoms, n_csets)
 
         if degeneracy:
