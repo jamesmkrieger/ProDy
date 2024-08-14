@@ -19,7 +19,7 @@ from .starfile import parseSTARSection
 from .cifheader import getCIFHeaderDict
 from .header import buildBiomolecules, assignSecstr
 
-__all__ = ['parseMMCIFStream', 'parseMMCIF', 'parseCIF']
+__all__ = ['parseMMCIFStream', 'parseMMCIF', 'parseCIF', 'writeMMCIF']
 
 
 class MMCIFParseError(Exception):
@@ -170,6 +170,7 @@ def parseMMCIFStream(stream, **kwargs):
     unite_chains = kwargs.get('unite_chains', False)
     altloc = kwargs.get('altloc', 'A')
     header = kwargs.get('header', False)
+    report = kwargs.get('report', False)
     assert isinstance(header, bool), 'header must be a boolean'
 
     if model is not None:
@@ -235,7 +236,7 @@ def parseMMCIFStream(stream, **kwargs):
             hd = getCIFHeaderDict(lines)
 
         _parseMMCIFLines(ag, lines, model, chain, subset, altloc, 
-                         segment, unite_chains)
+                         segment, unite_chains, report)
 
         if ag.numAtoms() > 0:
             LOGGER.report('{0} atoms and {1} coordinate set(s) were '
@@ -281,7 +282,7 @@ parseMMCIFStream.__doc__ += _parseMMCIFdoc
 
 def _parseMMCIFLines(atomgroup, lines, model, chain, subset,
                      altloc_torf, segment, unite_chains,
-                     report=False):
+                     report):
     """Returns an AtomGroup. See also :func:`.parsePDBStream()`.
 
     :arg lines: mmCIF lines
@@ -487,7 +488,7 @@ def _parseMMCIFLines(atomgroup, lines, model, chain, subset,
     else:
         modelSize = acount
 
-    mask = np.full(modelSize, True, dtype=bool)
+    mask = np.full(acount, True, dtype=bool)
     if which_altlocs != 'all':
         #mask out any unwanted alternative locations
         mask = (altlocs == ' ') | np.logical_or(*[(altlocs == altloc)
@@ -565,3 +566,37 @@ def _parseMMCIFLines(atomgroup, lines, model, chain, subset,
             atomgroup.addCoordset(coordinates[mask][n*modelSize:(n+1)*modelSize])
 
     return atomgroup
+
+
+def writeMMCIF(filename, atoms, csets=None, autoext=True, **kwargs):
+    """Write *atoms* in MMTF format to a file with name *filename* and return
+    *filename*.  If *filename* ends with :file:`.gz`, a compressed file will
+    be written.
+    
+    :arg atoms: an object with atom and coordinate data
+    :type atoms: :class:`.Atomic`
+
+    :arg csets: coordinate set indices, default is all coordinate sets
+
+    :arg autoext: when not present, append extension :file:`.cif` to *filename*
+
+    :keyword header: header to write too
+    :type header: dict
+    """
+    try:
+        from Bio.PDB import MMCIFIO
+    except ImportError:
+        raise ImportError('Biopython MMCIFIO could not be imported. '
+            'Reinstall ProDy or install Biopython '
+            'to solve the problem.')
+
+    header = kwargs.get('header', None)
+
+    if autoext and not filename.lower().endswith('.cif'):
+        filename += '.cif'
+
+    structure = atoms.toBioPythonStructure(header=header, csets=csets)
+    io=MMCIFIO()
+    io.set_structure(structure)
+    io.save(filename)
+    return filename

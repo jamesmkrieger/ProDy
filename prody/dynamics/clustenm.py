@@ -111,6 +111,8 @@ class ClustENM(Ensemble):
         self._targeted = False
         self._tmdk = 10.
 
+        self._cc = None
+
         super(ClustENM, self).__init__('Unknown')   # dummy title; will be replaced in the next line
         self._title = title
 
@@ -520,7 +522,8 @@ class ClustENM(Ensemble):
         if not self._checkANM(anm_cg):
             return None
 
-        anm_cg.calcModes(self._n_modes)
+        anm_cg.calcModes(self._n_modes, turbo=self._turbo,
+                         nproc=self._nproc)
 
         anm_ex = self._extendModel(anm_cg, cg, tmp)
         a = np.array(list(product([-1, 0, 1], repeat=self._n_modes)))
@@ -548,7 +551,7 @@ class ClustENM(Ensemble):
 
         anm = ANM()
         anm.buildHessian(cg, cutoff=self._cutoff, gamma=self._gamma,
-                         sparse=self._sparse, kdtree=self._kdtree, 
+                         sparse=self._sparse, kdtree=self._kdtree,
                          nproc=self._nproc)
 
         return anm
@@ -583,10 +586,12 @@ class ClustENM(Ensemble):
 
         anm_cg = self._buildANM(cg)
 
+        n_confs = self._n_confs
+
         if not self._checkANM(anm_cg):
             return None
 
-        anm_cg.calcModes(self._n_modes, turbo=self._turbo, 
+        anm_cg.calcModes(self._n_modes, turbo=self._turbo,
                          nproc=self._nproc)
 
         anm_ex = self._extendModel(anm_cg, cg, tmp)
@@ -1121,7 +1126,7 @@ class ClustENM(Ensemble):
 
         :arg replace_filtered: If it is True (default is False), conformer sampling and filtering 
             will be repeated until the desired number of conformers have been kept.
-        :type replace_filtered: bool        
+        :type replace_filtered: bool
         '''
 
         if self._isBuilt():
@@ -1158,7 +1163,7 @@ class ClustENM(Ensemble):
         
         if self._fitmap is not None:
             self._fitmap = self._fitmap.toTEMPyMap()
-            self._fit_resolution = kwargs.pop('fit_resolution', 5)
+            self._fit_resolution = kwargs.get('fit_resolution', 5)
             self._replace_filtered = kwargs.pop('replace_filtered', False)
 
         if maxclust is None and threshold is None and n_gens > 0:

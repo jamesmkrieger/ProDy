@@ -203,6 +203,9 @@ DATA_FILES = {
     'MSA': {
         'file': 'msa_3hsyA_3o21A.fasta'
     },
+    'MSA_MEW': {
+        'file': 'msa_3hsyA_3o21A_new.fasta'
+    },
     'RTER': {
         'file': 'pdbRTER.pdb'
     },
@@ -374,6 +377,11 @@ DATA_FILES = {
     'pdb1ake': {
         'file': 'pdb1ake.pdb'
     },
+    'pdb7pbl': {
+        'file': 'pdb7pbl.pdb',
+        'atoms': 31396,
+        'nucleoside': 252
+    }
 }
 
 
