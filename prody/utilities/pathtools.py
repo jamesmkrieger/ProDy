@@ -13,6 +13,7 @@ from os.path import getsize, isabs, exists, abspath
 from shutil import copy, Error as shError
 
 from prody import PY3K
+from .misctools import createStringIO
 
 PLATFORM = platform.system()
 USERHOME = os.getenv('USERPROFILE') or os.getenv('HOME')
@@ -226,7 +227,7 @@ def gunzip(filename, outname=None):
     else:
         result = None
         try:
-            from StringIO import StringIO
+            stream = createStringIO()
         except (ImportError, ModuleNotFoundError):
             from io import BytesIO
             buff = gzip_open(BytesIO(filename))
@@ -245,8 +246,8 @@ def gunzip(filename, outname=None):
                         out.write(buff)
                 return outname
         else:
-            from StringIO import StringIO
-            buff = gzip.GzipFile(fileobj=StringIO(filename))
+            stream = createStringIO()
+            buff = gzip.GzipFile(fileobj=stream)
             try:
                 result = buff.read()
             except IOError:
