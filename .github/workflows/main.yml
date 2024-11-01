@@ -31,7 +31,8 @@ jobs:
         source activate test
         conda install --yes numpy scipy nose requests
         if [[ ${{ matrix.python-version }} == "2.7" ]]; then conda install --yes unittest2; else conda install --yes pdbfixer mdtraj; fi
-        pip install mmtf-python scikit-learn pytest pytest-skip-slow
+        if [[ ${{ matrix.python-version }} != "2.7" ]]; then pip install pytest-skip-slow; fi
+        pip install mmtf-python scikit-learn pytest
         pip install .
         python setup.py build_ext --inplace --force
     - name: Test with pytest
