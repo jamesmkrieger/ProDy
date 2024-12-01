@@ -9,11 +9,18 @@ import numpy as np
 from prody.proteins import alignChains
 from prody.utilities import openFile, showFigure, copy, isListLike, pystr, DTYPE
 from prody import LOGGER, SETTINGS
-from prody.atomic import Atomic, AtomMap, Chain, AtomGroup, Selection, Segment, Select, AtomSubset
+from prody.atomic import Atomic, AtomGroup
+from prody.sequence import buildSeqidMatrix
 
-from .ensemble import *
-from .pdbensemble import *
-from .conformation import *
+have_openmm = True
+try:
+    import openmm
+except ImportError:
+    have_openmm = False
+
+from .ensemble import Ensemble
+from .pdbensemble import PDBEnsemble
+from .conformation import PDBConformation
 
 __all__ = ['saveEnsemble', 'loadEnsemble', 'trimPDBEnsemble',
            'calcOccupancies', 'showOccupancies',
@@ -46,7 +53,10 @@ def saveEnsemble(ensemble, filename=None, **kwargs):
                           '_padding', '_ionicStrength', '_force_field', '_tolerance',
                           '_maxIterations', '_sim', '_temp', '_t_steps', '_outlier',
                           '_mzscore', '_v1', '_parallel', '_idx_cg', '_n_cg', '_cycle',
-                          '_time', '_targeted', '_tmdk', '_topology', '_positions'])
+                          '_time', '_targeted', '_tmdk', '_cc'])
+        if have_openmm:
+            attr_list.extend(['_topology', '_positions'])
+
     if isinstance(ensemble, AdaptiveHybrid):
         attr_list.extend(['_atomsB', '_defvecs', '_resetFmin', '_rmsds'])
         atomsB = dict_['_atomsB']
@@ -83,9 +93,9 @@ def saveEnsemble(ensemble, filename=None, **kwargs):
 
     attr_dict['_type'] = ensemble.__class__.__name__
 
-    if filename.endswith('.ens'):
+    if filename.lower().endswith('.ens'):
         filename += '.npz'
-    if not filename.endswith('.npz'):
+    if not filename.lower().endswith('.npz'):
         filename += '.ens.npz'
     ostream = openFile(filename, 'wb', **kwargs)
     np.savez(ostream, **attr_dict)
@@ -173,7 +183,9 @@ def loadEnsemble(filename, **kwargs):
                     '_rmsd', '_n_gens', '_maxclust', '_threshold', '_sol',
                     '_sim', '_temp', '_t_steps', '_outlier', '_mzscore', '_v1',
                     '_parallel', '_idx_ca', '_n_ca', '_cycle', '_time', '_targeted',
-                    '_tmdk', '_topology', '_positions']
+                    '_tmdk', '_cc']
+        if have_openmm:
+            attrs.extend(['_topology', '_position'])
             
             for attr in attrs:
                 if attr in attr_dict.files:
@@ -181,7 +193,7 @@ def loadEnsemble(filename, **kwargs):
 
         if type_ == 'AdaptiveHybrid':
             attrs = ['_atomsB', '_defvecs', '_resetFmin', '_rmsds']
-            
+
             for attr in attrs:
                 if attr in attr_dict.files:
                     setattr(ensemble, attr, attr_dict[attr])
@@ -413,7 +425,7 @@ def buildPDBEnsemble(atomics, ref=None, title='Unknown', labels=None, atommaps=N
         is below this value will be trimmed
     :type occupancy: float
 
-    :arg atommaps: labels of *atomics* that were mapped and added into the ensemble. This is an 
+    :arg atommaps: atom maps for *atomics* that were mapped and added into the ensemble. This is an 
         output argument
     :type atommaps: list
 
@@ -440,14 +452,14 @@ def buildPDBEnsemble(atomics, ref=None, title='Unknown', labels=None, atommaps=N
 
     if 'mapping_func' in kwargs:
         raise DeprecationWarning('mapping_func is deprecated. Please see release notes for '
-                                 'more details: http://prody.csb.pitt.edu/manual/release/v1.11_series.html')
+                                 'more details: http://www.bahargroup.org/prody/manual/release/v1.11_series.html')
     start = time.time()
 
     if not isListLike(atomics):
         raise TypeError('atomics should be list-like')
 
     if len(atomics) == 1 and degeneracy is True:
-        raise ValueError('atomics should have at least two items')
+        raise ValueError('atomics should have at least two items or degeneracy should be False')
 
     if labels is not None:
         if len(labels) != len(atomics):
@@ -567,8 +579,13 @@ def refineEnsemble(ensemble, lower=.5, upper=10., **kwargs):
     :arg ref: the index or label of the reference conformation which will also be kept.
         Default is 0
     :type ref: int or str
+    
+    :arg data_type: type of data to use for refinement. This can be either "rmsd" or "seqid"
+        Default is "rmsd"
+    :type data_type: str
     """ 
-
+    data_type = kwargs.pop('data_type', 'rmsd')
+    
     protected = kwargs.pop('protected', [])
     P = []
     if len(protected):
@@ -601,8 +618,15 @@ def refineEnsemble(ensemble, lower=.5, upper=10., **kwargs):
     if not ref_i in P:
         P = [ref_i] + P
 
-    ### calculate pairwise RMSDs ###
-    RMSDs = ensemble.getRMSDs(pairwise=True)
+    if data_type == 'rmsd':
+        ### calculate pairwise RMSDs ###
+        matrix = ensemble.getRMSDs(pairwise=True)
+    elif data_type == 'seqid':
+        try:
+            msa = ensemble.getMSA()
+            matrix = buildSeqidMatrix(msa)
+        except (AttributeError, TypeError):
+            raise ValueError('could not apply seqid refinement on Ensemble without MSA')
 
     def getRefinedIndices(A):
         deg = A.sum(axis=0)
@@ -638,11 +662,11 @@ def refineEnsemble(ensemble, lower=.5, upper=10., **kwargs):
     L = list(range(len(ensemble)))
     U = list(range(len(ensemble)))
     if lower is not None:
-        A = RMSDs < lower
+        A = matrix < lower
         L = getRefinedIndices(A)
 
     if upper is not None:
-        B = RMSDs > upper
+        B = matrix > upper
         U = getRefinedIndices(B)
     
     # find common indices from L and U
