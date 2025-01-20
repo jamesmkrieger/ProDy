@@ -1204,7 +1204,26 @@ class AtomGroup(Atomic):
         else:
             raise TypeError('labels must be a list')
 
-    def setBonds(self, bonds):
+    def setBondOrders(self, bondOrders):
+        """Set covalent bond order. *bondOrders* must be a list or an array
+        of integers and provide a value for each bond. Possible values are
+        1:single, 2:double, 3:triple, 4:aromatic, 5:amide. The bond order of
+        all bonds must be set at once. This method must be called after
+        the setBonds() has been called. The bond order is stored in the
+        *_bondOrders* array."""
+
+        if bondOrders is None:
+            self._bondOrders = bondOrders
+            return
+        
+        if len(bondOrders)!=len(self._bonds):
+            raise ValueError('invalid bond order list, bond and bond order length mismatch')
+        if min(bondOrders)<1 or max(bondOrders)>5:
+            raise ValueError('invalid bond order value, values must range from 1 to 5')
+
+        self._bondOrders = np.array(bondOrders, np.int8)
+
+    def setBonds(self, bonds, bondOrders=None):
         """Set covalent bonds between atoms.  *bonds* must be a list or an
         array of pairs of indices.  All bonds must be set at once.  Bonding
         information can be used to make atom selections, e.g. ``"bonded to
