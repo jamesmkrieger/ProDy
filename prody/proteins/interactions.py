@@ -13,8 +13,8 @@ The following interactions are available for protein interactions:
 """
 
 __author__ = 'Karolina Mikulska-Ruminska'
-__credits__ = ['James Krieger', 'Karolina Mikulska-Ruminska']
-__email__ = ['karolamik@fizyka.umk.pl', 'jamesmkrieger@gmail.com']
+__credits__ = ['James Krieger', 'Karolina Mikulska-Ruminska', 'Anupam Banerjee']
+__email__ = ['karolamik@fizyka.umk.pl', 'jamesmkrieger@gmail.com', 'anupam.banerjee@stonybrook.edu']
 
 
 import numpy as np
@@ -1496,42 +1496,41 @@ def calcHydrophobic(atoms, **kwargs):
         if sele2 != None:
             sele2_nr = list(set(zip(sele2.getResnums(), sele2.getChids())))
 
-            if sele1_name[0] in aromatic:
-                # avoid double counting pi stacking and don't include same residue interactions
-                sele2_filter = sele2.select('all and not (resname TYR PHE TRP or resid '+str(i[0])+' and chain '+i[1]+')')
+            for (resnum, chid) in sele2_nr:
+                sele2_filter = sele2.select('resnum {0} and chid {1}'.format(resnum, chid))
+
+                if sele1_name[0] in aromatic:
+                    # avoid double counting pi stacking and don't include same residue interactions
+                    sele2_filter = sele2_filter.select('all and not (resname TYR PHE TRP or resid '+str(i[0])+' and chain '+i[1]+')')
+                elif sele1_name[0] not in aromatic and i in sele2_nr:
+                    # don't include same residue interactions but don't worry about double counting pi stacking
+                    sele2_filter = sele2_filter.select(sele2.select('all and not (resid '+str(i[0])+' and chain '+i[1]+')'))
+
                 if sele2_filter != None:
                     listOfAtomToCompare = cleanNumbers(findNeighbors(sele1, distA, sele2_filter))
-                
-            elif sele1_name[0] not in aromatic and i in sele2_nr:
-                # don't include same residue interactions but don't worry about double counting pi stacking
-                sele2_filter = sele2.select(sele2.select('all and not (resid '+str(i[0])+' and chain '+i[1]+')'))
-                if sele2_filter != None:
-                    listOfAtomToCompare = cleanNumbers(findNeighbors(sele1, distA, sele2_filter))
-            else:
-                listOfAtomToCompare = cleanNumbers(findNeighbors(sele1, distA, sele2))
-                                                           
-            if listOfAtomToCompare != []:
-                listOfAtomToCompare = sorted(listOfAtomToCompare, key=lambda x : x[-1])
-                minDistancePair = listOfAtomToCompare[0]
-                if minDistancePair[-1] < distA:
-                    sele1_new = atoms.select('index '+str(minDistancePair[0])+' and name '+str(minDistancePair[2]))
-                    sele2_new = atoms.select('index '+str(minDistancePair[1])+' and name '+str(minDistancePair[3]))
-                    residue1 = sele1_new.getResnames()[0]+str(sele1_new.getResnums()[0]) 
-                    residue2 = sele2_new.getResnames()[0]+str(sele2_new.getResnums()[0])
-                    try:
-                        Hydrophobic_calculations.append([residue1, 
-                                                    minDistancePair[2]+'_'+str(minDistancePair[0]), sele1_new.getChids()[0],
-                                                    residue2, 
-                                                    minDistancePair[3]+'_'+str(minDistancePair[1]), sele2_new.getChids()[0],
-                                                    round(minDistancePair[-1],4),
-                                                    round(get_permutation_from_dic(hpb_overlaping_results,(residue1+sele1_new.getChids()[0],
-                                                    residue2+sele2_new.getChids()[0])),4)])
-                    except:
-                        Hydrophobic_calculations.append([residue1, 
-                                                    minDistancePair[2]+'_'+str(minDistancePair[0]), sele1_new.getChids()[0],
-                                                    residue2, 
-                                                    minDistancePair[3]+'_'+str(minDistancePair[1]), sele2_new.getChids()[0],
-                                                    round(minDistancePair[-1],4)])                         
+
+                if listOfAtomToCompare != []:
+                    listOfAtomToCompare = sorted(listOfAtomToCompare, key=lambda x : x[-1])
+                    minDistancePair = listOfAtomToCompare[0]
+                    if minDistancePair[-1] < distA:
+                        sele1_new = atoms.select('index '+str(minDistancePair[0])+' and name '+str(minDistancePair[2]))
+                        sele2_new = atoms.select('index '+str(minDistancePair[1])+' and name '+str(minDistancePair[3]))
+                        residue1 = sele1_new.getResnames()[0]+str(sele1_new.getResnums()[0])
+                        residue2 = sele2_new.getResnames()[0]+str(sele2_new.getResnums()[0])
+                        try:
+                            Hydrophobic_calculations.append([residue1,
+                                                            minDistancePair[2]+'_'+str(minDistancePair[0]), sele1_new.getChids()[0],
+                                                            residue2,
+                                                            minDistancePair[3]+'_'+str(minDistancePair[1]), sele2_new.getChids()[0],
+                                                            round(minDistancePair[-1],4),
+                                                            round(get_permutation_from_dic(hpb_overlaping_results,(residue1+sele1_new.getChids()[0],
+                                                            residue2+sele2_new.getChids()[0])),4)])
+                        except:
+                            Hydrophobic_calculations.append([residue1,
+                                                            minDistancePair[2]+'_'+str(minDistancePair[0]), sele1_new.getChids()[0],
+                                                            residue2,
+                                                            minDistancePair[3]+'_'+str(minDistancePair[1]), sele2_new.getChids()[0],
+                                                            round(minDistancePair[-1],4)])
     
     selection = kwargs.get('selection', None)
     selection2 = kwargs.get('selection2', None) 
@@ -1606,12 +1605,15 @@ def calcDisulfideBonds(atoms, **kwargs):
     
     from prody.measure import calcDihedral
     
-    try:
-        atoms_SG = atoms.select('protein and resname CYS and name SG')
+    atoms_SG = atoms.select('protein and resname CYS and name SG')
+    DisulfideBonds_list = []
+
+    if atoms_SG is None:
+        LOGGER.info('Lack of cysteines in the structure.')
+    else:
         atoms_SG_res = list(set(zip(atoms_SG.getResnums(), atoms_SG.getChids())))
     
         LOGGER.info('Calculating disulfide bonds.')
-        DisulfideBonds_list = []
         for i in atoms_SG_res:
             CYS_pairs = atoms.select('(same residue as protein within '+str(distA)+' of ('+'resid '+str(i[0])+' and chain '+i[1]+' and name SG)) and (resname CYS and name SG)')
             if CYS_pairs.numAtoms() > 1:
@@ -1631,15 +1633,12 @@ def calcDisulfideBonds(atoms, **kwargs):
                             ' and chain '+str(sele2_new.getChids()[0]))
                         diheAng = calcDihedral(sele1_CB, sele1_new, sele2_new, sele2_CB)
                         DisulfideBonds_list.append([sele1_new.getResnames()[0]+str(sele1_new.getResnums()[0]),
-                                                                minDistancePair[2]+'_'+str(minDistancePair[0]), sele1_new.getChids()[0],
-                                                                sele2_new.getResnames()[0]+str(sele2_new.getResnums()[0]),
-                                                                minDistancePair[3]+'_'+str(minDistancePair[1]), sele2_new.getChids()[0],
-                                                                round(minDistancePair[-1],4), round(float(diheAng),4)])
-    except:
-        atoms_SG = atoms.select('protein and resname CYS')
-        if atoms_SG is None:
-            LOGGER.info('Lack of cysteines in the structure.')
-            DisulfideBonds_list = []
+                                                    minDistancePair[2]+'_'+str(minDistancePair[0]),
+                                                    sele1_new.getChids()[0],
+                                                    sele2_new.getResnames()[0]+str(sele2_new.getResnums()[0]),
+                                                    minDistancePair[3]+'_'+str(minDistancePair[1]),
+                                                    sele2_new.getChids()[0],
+                                                    round(minDistancePair[-1],4), round(float(diheAng),4)])
 
     DisulfideBonds_list_final = removeDuplicates(DisulfideBonds_list)
 
@@ -4545,7 +4544,14 @@ class Interactions(object):
         O Keskin, I Bahar and colleagues from [OK98]_ and have RT units.
 
         'CS' is from MD simulations of amino acid pairs from Carlos Simmerling
-        and Gary Wu in the InSty paper (under preparation) and have units of kcal/mol. """
+        and Gary Wu in the [MR25]_ and have units of kcal/mol. 
+        
+        .. [MR25] Mikulska-Ruminska K, Krieger JM, Cao X, Banerjee A, Wu G, 
+        Bogetti AT, Zhang F, Simmerling C, Coutsias EA, Bahar I
+        InSty: a new module in ProDy for evaluating the interactions 
+        and stability of proteins
+        *Bioinformatics* **2025** 169009
+        """
         
         import numpy as np
         import matplotlib
@@ -4898,7 +4904,7 @@ class Interactions(object):
         O Keskin, I Bahar and colleagues from [OK98]_ and have RT units.
 
         'CS' is from MD simulations of amino acid pairs from Carlos Simmerling
-        and Gary Wu for the InSty paper (under preparation) and have units kcal/mol.
+        and Gary Wu for [MR25]_ and have units kcal/mol.
         """
 
         import numpy as np
@@ -5152,25 +5158,6 @@ class InteractionsTrajectory(object):
                 raise TypeError('coords must be an object '
                                 'with `getCoords` method')
 
-        HBs_all = []
-        SBs_all = []
-        RIB_all = []
-        PiStack_all = []
-        PiCat_all = []
-        HPh_all = []
-        DiBs_all = []
-
-        HBs_nb = []
-        SBs_nb = []
-        RIB_nb = []
-        PiStack_nb = []
-        PiCat_nb = []
-        HPh_nb = []
-        DiBs_nb = []
-
-        interactions_traj = [HBs_all, SBs_all, RIB_all, PiStack_all, PiCat_all, HPh_all, DiBs_all]
-        interactions_nb_traj = [HBs_nb, SBs_nb, RIB_nb, PiStack_nb, PiCat_nb, HPh_nb, DiBs_nb]
-
         start_frame = kwargs.pop('start_frame', 0)
         stop_frame = kwargs.pop('stop_frame', -1)
         max_proc = kwargs.pop('max_proc', mp.cpu_count()//2)
@@ -5195,12 +5182,33 @@ class InteractionsTrajectory(object):
         else:
             traj = trajectory[start_frame:stop_frame+1]
 
+        HBs_all = [[] for _ in traj]
+        SBs_all = [[] for _ in traj]
+        RIB_all = [[] for _ in traj]
+        PiStack_all = [[] for _ in traj]
+        PiCat_all = [[] for _ in traj]
+        HPh_all = [[] for _ in traj]
+        DiBs_all = [[] for _ in traj]
+
+        HBs_nb = [[] for _ in traj]
+        SBs_nb = [[] for _ in traj]
+        RIB_nb = [[] for _ in traj]
+        PiStack_nb = [[] for _ in traj]
+        PiCat_nb = [[] for _ in traj]
+        HPh_nb = [[] for _ in traj]
+        DiBs_nb = [[] for _ in traj]
+
+        interactions_traj = [HBs_all, SBs_all, RIB_all, PiStack_all, PiCat_all, HPh_all, DiBs_all]
+        interactions_nb_traj = [HBs_nb, SBs_nb, RIB_nb, PiStack_nb, PiCat_nb, HPh_nb, DiBs_nb]
+
         atoms_copy = atoms.copy()
         protein = atoms_copy.protein
 
-        def analyseFrame(j0, frame0, interactions_all, interactions_nb, j0_list):
+        def analyseFrame(j0, frame0, interactions_all, interactions_nb):
             LOGGER.info('Frame: {0}'.format(j0))
             atoms_copy.setCoords(frame0.getCoords())
+
+            ind = j0 - start_frame
             
             hydrogen_bonds = calcHydrogenBonds(protein, **kwargs)
             salt_bridges = calcSaltBridges(protein, **kwargs)
@@ -5210,43 +5218,37 @@ class InteractionsTrajectory(object):
             hydrophobic = calcHydrophobic(protein, **kwargs)
             Disulfide_Bonds = calcDisulfideBonds(protein, **kwargs)
 
-            interactions_all[0].append(hydrogen_bonds)
-            interactions_all[1].append(salt_bridges)
-            interactions_all[2].append(RepulsiveIonicBonding)
-            interactions_all[3].append(Pi_stacking)
-            interactions_all[4].append(Pi_cation)
-            interactions_all[5].append(hydrophobic)
-            interactions_all[6].append(Disulfide_Bonds)
-        
-            interactions_nb[0].append(len(hydrogen_bonds))
-            interactions_nb[1].append(len(salt_bridges))
-            interactions_nb[2].append(len(RepulsiveIonicBonding))
-            interactions_nb[3].append(len(Pi_stacking))
-            interactions_nb[4].append(len(Pi_cation))
-            interactions_nb[5].append(len(hydrophobic))
-            interactions_nb[6].append(len(Disulfide_Bonds))
+            interactions_all[0][ind].extend(hydrogen_bonds)
+            interactions_all[1][ind].extend(salt_bridges)
+            interactions_all[2][ind].extend(RepulsiveIonicBonding)
+            interactions_all[3][ind].extend(Pi_stacking)
+            interactions_all[4][ind].extend(Pi_cation)
+            interactions_all[5][ind].extend(hydrophobic)
+            interactions_all[6][ind].extend(Disulfide_Bonds)
 
-            j0_list.append(j0)
+            interactions_nb[0][ind].append(len(hydrogen_bonds))
+            interactions_nb[1][ind].append(len(salt_bridges))
+            interactions_nb[2][ind].append(len(RepulsiveIonicBonding))
+            interactions_nb[3][ind].append(len(Pi_stacking))
+            interactions_nb[4][ind].append(len(Pi_cation))
+            interactions_nb[5][ind].append(len(hydrophobic))
+            interactions_nb[6][ind].append(len(Disulfide_Bonds))
 
         if max_proc == 1:
-            interactions_all = []
-            interactions_all.extend(interactions_traj)
-            interactions_nb = []
-            interactions_nb.extend(interactions_nb_traj)
-            j0_list = []
+            interactions_all = interactions_traj
+            interactions_nb = interactions_nb_traj
             for j0, frame0 in enumerate(traj, start=start_frame):
-                analyseFrame(j0, frame0, interactions_all, interactions_nb,
-                             j0_list)
+                analyseFrame(j0, frame0, interactions_all, interactions_nb)
+            interactions_nb =  [[item[0] for item in row] for row in interactions_nb]
         else:
             with mp.Manager() as manager:
                 interactions_all = manager.list()
-                interactions_all.extend([manager.list() for _ in interactions_traj])
-
                 interactions_nb = manager.list()
-                interactions_nb.extend([manager.list() for _ in interactions_nb_traj])
+                for row in interactions_traj:
+                    interactions_all.append([manager.list() for _ in row])
+                    interactions_nb.append([manager.list() for _ in row])
 
                 j0 = start_frame
-                j0_list = manager.list()
                 while j0 < traj.numConfs()+start_frame:
 
                     processes = []
@@ -5255,8 +5257,7 @@ class InteractionsTrajectory(object):
                         
                         p = mp.Process(target=analyseFrame, args=(j0, frame0,
                                                                   interactions_all,
-                                                                  interactions_nb,
-                                                                  j0_list))
+                                                                  interactions_nb))
                         p.start()
                         processes.append(p)
 
@@ -5267,15 +5268,8 @@ class InteractionsTrajectory(object):
                     for p in processes:
                         p.join()
 
-                interactions_all = [entry[:] for entry in interactions_all]
-                interactions_nb = [entry[:] for entry in interactions_nb]
-                j0_list = [entry for entry in j0_list]
-
-            ids = np.argsort(j0_list)
-            interactions_all = [list(np.array(interactions_type, dtype=object)[ids])
-                                     for interactions_type in interactions_all]
-            interactions_nb = [list(np.array(interactions_type, dtype=object)[ids])
-                                     for interactions_type in interactions_nb]
+                interactions_all = [[item[:] for item in row] for row in interactions_all]
+                interactions_nb =  [[item[0] for item in row] for row in interactions_nb]
         
         self._atoms = atoms
         self._traj = trajectory
