@@ -592,7 +592,7 @@ def showLines(*args, **kwargs):
 
     return lines, polys
 
-def showBars(y, x=None, *args, **kwargs):
+def showBars(ydata, xdata=None, *args, **kwargs):
     """
     Show 1-D data using :func:`~matplotlib.axes.Axes.bar`. 
     
@@ -622,11 +622,11 @@ def showBars(y, x=None, *args, **kwargs):
     from matplotlib.pyplot import figure, gca, xlim
     from .drawtools import IndexFormatter
 
-    if x is None:
-        x = list(range(len(y)))
+    if xdata is None:
+        xdata = list(range(len(ydata)))
 
     ax = gca()
-    bars = ax.bar(x, y, *args, **kwargs)
+    bars = ax.bar(xdata, ydata, *args, **kwargs)
         
     for i, bar in enumerate(bars):
         x, y = bar.get_xy()

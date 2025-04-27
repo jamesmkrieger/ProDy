@@ -2316,7 +2316,6 @@ def showAtomicBars(*args, **kwargs):
         if overlay:
             labels = kwargs.pop('label', datalabels)
             Z = []
-<<<<<<< HEAD
             for z in zip(x, y):
                 Z.extend(z)
                 Z.append(linespec)
@@ -2327,19 +2326,6 @@ def showAtomicBars(*args, **kwargs):
                                      gap=True, **kwargs)
     else:
         lines = showBars(y, linespec, ticklabels=ticklabels, **kwargs)
-=======
-            for z in zip(y, x):
-                Z.extend(z)
-                #Z.append(linespec)
-            lines = showBars(*Z, ticklabels=ticklabels, 
-                                     gap=True, label=labels, **kwargs)
-        else:
-            lines = showBars(xdata=x, ydata=y, ticklabels=ticklabels, 
-                                     gap=True, **kwargs)
-    else:
-        #lines = showBars(linespec, ydata=y, ticklabels=ticklabels, **kwargs)
-        lines = showBars(ydata=y, ticklabels=ticklabels, **kwargs)
->>>>>>> 2b6c563d8fcf106e76d460037e32494df34fd2e3
 
     if zero_line:
         l = xlim()
