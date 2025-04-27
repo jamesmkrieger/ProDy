@@ -299,6 +299,12 @@ class ClustENM(Ensemble):
             properties = {'Precision': 'single'}
         elif self._platform in ['CUDA', 'OpenCL']:
             properties = {'Precision': 'single'}
+        elif self._platform == 'CPU':
+            if self._threads == 0:
+                cpus = cpu_count()
+            else:
+                cpus = self._threads
+            properties = {'Threads': str(cpus)}
 
         simulation = Simulation(modeller.topology, system, integrator,
                                 platform, properties)
@@ -313,7 +319,7 @@ class ClustENM(Ensemble):
 
         try:
             from openmm.app import StateDataReporter
-            from openmm.unit import kelvin, angstrom, kilojoule_per_mole, MOLAR_GAS_CONSTANT_R
+            from openmm.unit import kelvin, angstrom, nanometer, kilojoule_per_mole, MOLAR_GAS_CONSTANT_R
         except ImportError:
             raise ImportError('Please install PDBFixer and OpenMM 7.6 in order to use ClustENM.')
 
@@ -323,7 +329,7 @@ class ClustENM(Ensemble):
         # simulation.context.setPositions(coords * angstrom)
 
         try:
-            simulation.minimizeEnergy(tolerance=self._tolerance*kilojoule_per_mole, maxIterations=self._maxIterations)
+            simulation.minimizeEnergy(tolerance=self._tolerance*kilojoule_per_mole/nanometer, maxIterations=self._maxIterations)
             if self._sim:
                 # heating-up the system incrementally
                 sdr = StateDataReporter(stdout, 1, step=True, temperature=True)
@@ -392,7 +398,7 @@ class ClustENM(Ensemble):
         m_conv = 0
         n_steps = 0
         try:
-            simulation.minimizeEnergy(tolerance=self._tolerance*kilojoule_per_mole,
+            simulation.minimizeEnergy(tolerance=self._tolerance*kilojoule_per_mole/nanometer,
                                       maxIterations=self._maxIterations)
 
             # update parameters
@@ -419,7 +425,7 @@ class ClustENM(Ensemble):
             LOGGER.debug('RMSD: %4.2f -> %4.2f' % (dist0, dist))
 
             simulation.context.setParameter('tmdk', 0.0)
-            simulation.minimizeEnergy(tolerance=self._tolerance*kilojoule_per_mole,
+            simulation.minimizeEnergy(tolerance=self._tolerance*kilojoule_per_mole/nanometer,
                                       maxIterations=self._maxIterations)
 
             pos = simulation.context.getState(getPositions=True).getPositions(asNumpy=True).value_in_unit(angstrom)
@@ -571,7 +577,12 @@ class ClustENM(Ensemble):
 
         if self._targeted:
             if self._parallel:
-                with Pool(cpu_count()) as p:
+                if isinstance(self._parallel, int):
+                    repeats = self._parallel
+                elif isinstance(self._parallel, bool):
+                    repeats = cpu_count()
+
+                with Pool(repeats) as p:
                     pot_conf = p.map(self._multi_targeted_sim,
                                      [(conf, coords) for coords in coordsets])
             else:
@@ -672,7 +683,12 @@ class ClustENM(Ensemble):
         sample_method = self._sample_v1 if self._v1 else self._sample
 
         if self._parallel:
-            with Pool(cpu_count()) as p:
+            if isinstance(self._parallel, int):
+                repeats = self._parallel
+            elif isinstance(self._parallel, bool):
+                repeats = cpu_count()
+
+            with Pool(repeats) as p:
                 tmp = p.map(sample_method, [conf for conf in confs])
         else:
             tmp = [sample_method(conf) for conf in confs]
@@ -1007,7 +1023,7 @@ class ClustENM(Ensemble):
             Experimental feature: Forcefields already implemented in OpenMM can be used. 
         :type force_field: tuple of strings
         
-        :arg tolerance: Energy tolerance to which the system should be minimized, default is 10.0 kJ/mole.
+        :arg tolerance: Energy tolerance to which the system should be minimized, default is 10.0 kJ/mole*nm.
         :type tolerance: float
         
         :arg maxIterations: Maximum number of iterations to perform during energy minimization.
@@ -1048,10 +1064,17 @@ class ClustENM(Ensemble):
         :arg platform: Architecture on which the OpenMM part runs, default is None.
             It can be chosen as 'CUDA', 'OpenCL' or 'CPU'.
             For efficiency, 'CUDA' or 'OpenCL' is recommended.
+            'CPU' is needed for setting threads per simulation.
         :type platform: str
 
         :arg parallel: If it is True (default is False), conformer generation will be parallelized.
+            This can also be set to a number for how many CPUs are used in parallel conformer generation.
+            Setting 0 or True means run as many as there are CPUs on the machine.
         :type parallel: bool
+
+        :arg threads: Number of threads to use for an individual simulation using the thread setting from OpenMM
+            Default of 0 uses all CPUs on the machine.
+        :type threads: int
 
         :arg fitmap: Cryo-EM map for fitting using a protocol similar to MDeNM-EMFit
             Default *None*
@@ -1084,7 +1107,19 @@ class ClustENM(Ensemble):
         self._rmsd = (0.,) + rmsd if isinstance(rmsd, tuple) else (0.,) + (rmsd,) * n_gens
         self._n_gens = n_gens
         self._platform = kwargs.pop('platform', None)
+
         self._parallel = kwargs.pop('parallel', False)
+        if not isinstance(self._parallel, (int, bool)):
+            raise TypeError('parallel should be an int or bool')
+
+        if self._parallel == 1:
+            # this is equivalent to not actually being parallel
+            self._parallel = False
+        elif self._parallel == 0:
+            # this is a deliberate choice and is documented
+            self._parallel = True
+
+        self._threads = kwargs.pop('threads', 0)
         self._targeted = kwargs.pop('targeted', False)
         self._tmdk = kwargs.pop('tmdk', 15.)
 
@@ -1284,7 +1319,7 @@ class ClustENM(Ensemble):
                 if self._ionicStrength != 0.0:
                     f.write('ionicStrength = %4.2f molar\n' % self._ionicStrength)
             f.write('force_field = (%s, %s)\n' % self._force_field)
-            f.write('tolerance = %4.2f kJ/mole\n' % self._tolerance)
+            f.write('tolerance = %4.2f kJ/mole*nm\n' % self._tolerance)
             if self._maxIterations != 0:
                 f.write('maxIteration = %d\n' % self._maxIterations)
             if self._sim:
