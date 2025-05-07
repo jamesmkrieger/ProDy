@@ -31,11 +31,11 @@ for key, txt, val in [
     ('figmode', 'save mode shape figures for specified modes, '
                 'e.g. "1-3 5" for modes 1, 2, 3 and 5', ''),
     ('blockInputType', 'type of input for blocks (1 or 2), '
-                'where 1 is number of residues and 2 is secstr elements', '2'),
-    ('res_per_block', 'Number of residues per block', '10'),
-    ('shortest_block', 'Number of residues in shortest block', '4'),
-    ('longest_block', 'Number of residues in longest block (-1 means whole protein)', '-1'),
-    ('min_dist_cutoff', 'Minimum distance cutoff for including in same block', '20')]:
+                       'where 1 is number of residues and 2 is secstr elements', 2),
+    ('res_per_block', 'Number of residues per block', 10),
+    ('shortest_block', 'Number of residues in shortest block', 4),
+    ('longest_block', 'Number of residues in longest block (-1 means whole protein)', 20),
+    ('min_dist_cutoff', 'Minimum distance cutoff for including in same block', 20.0)]:
 
     DEFAULTS[key] = val
     HELPTEXT[key] = txt
@@ -122,17 +122,26 @@ def prody_rtb(pdb, **kwargs):
         except TypeError:
             raise TypeError("Please provide cutoff as a float or equation using math")
 
-    LOGGER.info('Assigning blocks...')
     if blockInputType == BLOCKS_FROM_RES:
+        LOGGER.info('Assigning blocks using number of residues...')
         blocks, amap = prody.assignBlocks(select, res_per_block=res_per_block,
                                           shortest_block=shortest_block,
                                           longest_block=longest_block,
                                           min_dist_cutoff=min_dist_cutoff)
     else:
-        blocks, amap = prody.assignBlocks(select, secstr=True,
-                                          shortest_block=shortest_block,
-                                          longest_block=longest_block,
-                                          min_dist_cutoff=min_dist_cutoff)
+        try:
+            LOGGER.info('Trying assigning blocks using secondary structures...')
+            blocks, amap = prody.assignBlocks(select, secstr=True,
+                                              shortest_block=shortest_block,
+                                              longest_block=longest_block,
+                                              min_dist_cutoff=min_dist_cutoff)
+        except OSError:
+            LOGGER.warn('No secondary structures available.')
+            LOGGER.info('Assigning blocks using number of residues...')
+            blocks, amap = prody.assignBlocks(select, res_per_block=res_per_block,
+                                              shortest_block=shortest_block,
+                                              longest_block=longest_block,
+                                              min_dist_cutoff=min_dist_cutoff)
     LOGGER.info('Assigning blocks done.')
 
     nproc = kwargs.get('nproc')
@@ -306,7 +315,8 @@ Fetch PDB 1aar, run RTB calculations using default parameters for chain A
 carbon alpha atoms with residue numbers less than 70, and save all of the
 graphical output files:
 
-  $ prody rtb 1aar -s "calpha and chain A and resnum < 70" -A""",
+  $ prody rtb 1aar -s "calpha and chain A and resnum < 70" -A
+""",
   test_examples=[0, 1])
 
     group = addNMAParameters(subparser)
@@ -358,8 +368,8 @@ graphical output files:
         type=int, metavar='INT', default=DEFAULTS['longest_block'], 
         help=HELPTEXT['longest_block'] + ' (default: %(default)s)')
 
-    group.add_argument('-V', '--min-block-dist-cutoff', dest='min_dist_cutoff', 
-        type=int, metavar='INT', default=DEFAULTS['min_dist_cutoff'], 
+    group.add_argument('-V', '--min-block-dist-cutoff', dest='min_dist_cutoff',
+        type=float, metavar='FLOAT', default=DEFAULTS['min_dist_cutoff'],
         help=HELPTEXT['min_dist_cutoff'] + ' (default: %(default)s)')
 
     group = addNMAOutput(subparser)
