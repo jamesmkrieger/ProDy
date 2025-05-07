@@ -1263,9 +1263,9 @@ class AtomGroup(Atomic):
         *_bondOrders* array."""
 
         if bondOrders is None:
-          self._bondOrders = bondOrders
-          return
-      
+            self._bondOrders = bondOrders
+            return
+
         if len(bondOrders)!=len(self._bonds):
             raise ValueError('invalid bond order list, bond and bond order length mismatch')
         if min(bondOrders)<1 or max(bondOrders)>5:
