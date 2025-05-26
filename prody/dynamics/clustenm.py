@@ -111,7 +111,7 @@ class ClustENM(Ensemble):
         self._targeted = False
         self._tmdk = 10.
 
-        self._cc = None
+        self._cc = []
 
         super(ClustENM, self).__init__('Unknown')   # dummy title; will be replaced in the next line
         self._title = title
@@ -544,7 +544,42 @@ class ClustENM(Ensemble):
         r0 = tmp.getCoords()
         r = r0 + d
 
-        return r
+        ccList = []
+        if self._fitmap is not None:
+            LOGGER.info('Filtering for fitting in generation %d ...' % self._cycle)
+
+            kept_coordsets = []
+            new_coords, ccList = self._filter(r)
+            kept_coordsets.extend(new_coords)
+            n_confs = n_confs - len(kept_coordsets)
+
+            if len(kept_coordsets) == 0:
+                while len(kept_coordsets) == 0:
+                    anm_ex = self._extendModel(anm_cg, cg, tmp)
+                    ens_ex = sampleModes(anm_ex, atoms=tmp,
+                                        n_confs=n_confs,
+                                        rmsd=self._rmsd[self._cycle])
+                    coordsets = ens_ex.getCoordsets()
+
+                    new_coords, ccList = self._filter(coordsets)
+                    kept_coordsets.extend(new_coords)
+                    n_confs = n_confs - len(kept_coordsets)
+
+            if self._replace_filtered:
+                while n_confs > 0:
+                    anm_ex = self._extendModel(anm_cg, cg, tmp)
+                    ens_ex = sampleModes(anm_ex, atoms=tmp,
+                                        n_confs=n_confs,
+                                        rmsd=self._rmsd[self._cycle])
+                    coordsets = ens_ex.getCoordsets()
+
+                    new_coords, ccList = self._filter(coordsets)
+                    kept_coordsets.extend(new_coords)
+                    n_confs = n_confs - len(kept_coordsets)
+
+            coordsets = np.array(kept_coordsets)
+
+        return coordsets, ccList
 
     def _multi_targeted_sim(self, args):
 
@@ -606,13 +641,14 @@ class ClustENM(Ensemble):
                              rmsd=self._rmsd[self._cycle])
         coordsets = ens_ex.getCoordsets()
 
+        ccList = []
         if self._fitmap is not None:
             LOGGER.info('Filtering for fitting in generation %d ...' % self._cycle)
 
             kept_coordsets = []
-            if self._fitmap is not None:
-                kept_coordsets.extend(self._filter(coordsets))
-                n_confs = n_confs - len(kept_coordsets)
+            new_coords, ccList = self._filter(coordsets)
+            kept_coordsets.extend(new_coords)
+            n_confs = n_confs - len(kept_coordsets)
 
             if len(kept_coordsets) == 0:
                 while len(kept_coordsets) == 0:
@@ -622,9 +658,9 @@ class ClustENM(Ensemble):
                                         rmsd=self._rmsd[self._cycle])
                     coordsets = ens_ex.getCoordsets()
 
-                    if self._fitmap is not None:
-                        kept_coordsets.extend(self._filter(coordsets))
-                        n_confs = n_confs - len(kept_coordsets)
+                    new_coords, ccList = self._filter(coordsets)
+                    kept_coordsets.extend(new_coords)
+                    n_confs = n_confs - len(kept_coordsets)
 
             if self._replace_filtered:
                 while n_confs > 0: 
@@ -634,9 +670,9 @@ class ClustENM(Ensemble):
                                         rmsd=self._rmsd[self._cycle])
                     coordsets = ens_ex.getCoordsets()
 
-                    if self._fitmap is not None:
-                        kept_coordsets.extend(self._filter(coordsets))
-                        n_confs = n_confs - len(kept_coordsets)
+                    new_coords, ccList = self._filter(coordsets)
+                    kept_coordsets.extend(new_coords)
+                    n_confs = n_confs - len(kept_coordsets)
 
             coordsets = np.array(kept_coordsets)
 
@@ -663,7 +699,7 @@ class ClustENM(Ensemble):
         elif self._excited:
             LOGGER.warn('excited simulations are not implemented yet')
 
-        return coordsets
+        return coordsets, ccList
 
     def _rmsds(self, coords):
 
@@ -738,10 +774,9 @@ class ClustENM(Ensemble):
             ccList[i] = cc
             if cc - self._cc_prev < 0:
                 confs = np.delete(confs, i, 0)
+                ccList = np.delete(ccList, i, 0)
 
-        self._cc.extend(ccList)
-
-        return confs
+        return confs, [float(cc) for cc in ccList]
 
     def _generate(self, confs, **kwargs):
 
@@ -761,19 +796,13 @@ class ClustENM(Ensemble):
         else:
             tmp = [sample_method(conf) for conf in confs]
 
-        tmp = [r for r in tmp if r is not None]
+        tmp, ccList = tmp[0]
+        tmp = [tmp]
 
         confs_ex = np.concatenate(tmp)
+        self._cc.extend(ccList)
 
         confs_cg = confs_ex[:, self._idx_cg]
-
-        LOGGER.info('Clustering in generation %d ...' % self._cycle)
-        label_cg = self._hc(confs_cg)
-        centers, wei = self._centers(confs_cg, label_cg)
-        LOGGER.report('Centroids were generated in %.2fs.',
-                      label='_clustenm_gen')
-        
-        confs_centers = confs_ex[centers]
         
         if self._fitmap is not None:
             self._cc_prev = max(self._cc)
@@ -787,7 +816,7 @@ class ClustENM(Ensemble):
                         label='_clustenm_gen')
             confs_centers = confs_ex[centers]
         else:
-            confs_centers, wei = confs_cg, [len(confs_cg)]
+            confs_centers, wei = confs_ex, [len(confs_ex)]
 
         return confs_centers, wei
 
@@ -1200,8 +1229,7 @@ class ClustENM(Ensemble):
             except ImportError:
                 LOGGER.warn('TEMPy must be installed to use fitmap so ignoring this kwarg')
                 self._fitmap = None
-        
-        if self._fitmap is not None:
+
             self._fitmap = self._fitmap.toTEMPyMap()
             self._fit_resolution = kwargs.get('fit_resolution', 5)
             self._replace_filtered = kwargs.pop('replace_filtered', False)
@@ -1272,7 +1300,7 @@ class ClustENM(Ensemble):
                                           self._fitmap)
             self._scorer = ScoringFunctions()
             self._cc_prev = self._scorer.CCC(self._fitmap, sim_map_start)
-            self._cc = [self._cc_prev]
+            self._cc.append(float(self._cc_prev))
             LOGGER.info('Starting CC is %f' % self._cc_prev)
 
         LOGGER.timeit('_clustenm_overall')

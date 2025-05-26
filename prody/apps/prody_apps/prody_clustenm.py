@@ -164,7 +164,7 @@ def prody_clustenm(pdb, **kwargs):
     ens.writePDB(outname, single=single)
 
     if fitmap is not None:
-        prody.writeArray(outname, ens._cc)
+        prody.writeArray(outname + '_cc.txt', array(ens._cc))
 
     prody.saveEnsemble(ens, outname)
 
