@@ -6,6 +6,7 @@ combining clustering, ENM NMA and MD."""
 from ..apptools import *
 from .nmaoptions import *
 from . import nmaoptions
+from numpy import array
 
 __all__ = ['prody_clustenm']
 
