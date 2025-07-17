@@ -213,6 +213,17 @@ class TestParseMMCIF(unittest.TestCase):
                         'parseMMCIF failed to parse correct number of atoms '
                         'with biomol True for the chimerax mmcif of 1ake')
 
+    def testChimeraxCIFBiomolArguments(self):
+        """Test outcome of valid and invalid *segment* arguments."""
+
+        path = pathDatafile(self.chimerax['file'])
+
+        bm_non_united = parseMMCIF(path, biomol=True)
+        self.assertEqual(bm_non_united[0].numAtoms(),
+                        self.chimerax['bm0_atoms'],
+                        'parseMMCIF failed to parse correct number of atoms '
+                        'with biomol True for the chimerax mmcif of 1ake')
+
     def testSubsetArgument(self):
         """Test outcome of valid and invalid *subset* arguments."""
 
