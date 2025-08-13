@@ -545,6 +545,7 @@ class ClustENM(Ensemble):
         r = r0 + d
 
         ccList = []
+        n_confs = self._n_confs
         if self._fitmap is not None:
             LOGGER.info('Filtering for fitting in generation %d ...' % self._cycle)
 
@@ -569,8 +570,8 @@ class ClustENM(Ensemble):
                 while n_confs > 0:
                     anm_ex = self._extendModel(anm_cg, cg, tmp)
                     ens_ex = sampleModes(anm_ex, atoms=tmp,
-                                        n_confs=n_confs,
-                                        rmsd=self._rmsd[self._cycle])
+                                         n_confs=n_confs,
+                                         rmsd=self._rmsd[self._cycle])
                     coordsets = ens_ex.getCoordsets()
 
                     new_coords, ccList = self._filter(coordsets)
@@ -622,9 +623,6 @@ class ClustENM(Ensemble):
         tmp = self._atoms.copy()
         tmp.setCoords(conf)
         cg = tmp[self._idx_cg]
-
-        n_confs = self._n_confs
-
         anm_cg = self._buildANM(cg)
 
         n_confs = self._n_confs
