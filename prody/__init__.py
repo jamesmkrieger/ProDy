@@ -9,10 +9,9 @@ import warnings
 if sys.version_info[:2] < (2, 7):
     sys.stderr.write('Python 2.6 and older is not supported\n')
 
-if sys.version_info[0] == 3:
-    if sys.version_info[1] < 10:
-        sys.stderr.write('Python 3.9 and older is not supported\n')
-        sys.exit()
+if sys.version_info[0] == 3 and sys.version_info[1] < 8:
+    sys.stderr.write('Python 3.7 and older is not supported\n')
+    sys.exit()
 
 try:
     import numpy as np
