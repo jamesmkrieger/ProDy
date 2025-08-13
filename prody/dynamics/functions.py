@@ -601,7 +601,7 @@ def writeScipionModes(output_path, modes, write_star=False, scores=None,
                              for i in range(eigvecs.shape[1])])
 
         if isinstance(modes, ModeSet):
-            modes = modes.getModel()
+            modes = NMA()
         modes.setEigens(eigvecs, eigvals)
 
     if modes.numModes() > 1:
