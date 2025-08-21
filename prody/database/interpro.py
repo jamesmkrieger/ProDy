@@ -75,7 +75,7 @@ def searchInterpro(query, **kwargs):
     sleep = 2
     while LOGGER.timing('_interpro') < timeout:
         try:
-            result = requests.get(url, verify=False).content
+            result = requests.get(url, verify=True).content
         except Exception:
             pass
         else:

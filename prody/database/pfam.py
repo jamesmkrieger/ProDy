@@ -96,7 +96,7 @@ def searchPfam(query, **kwargs):
     sleep = 2
     while LOGGER.timing('_pfam') < timeout:
         try:
-            xml = requests.get(url, verify=False).content
+            xml = requests.get(url, verify=True).content
         except Exception:
             pass
         else:
@@ -227,7 +227,7 @@ def fetchPfamMSA(acc, alignment='seed', compressed=False, **kwargs):
     sleep = 2
     while LOGGER.timing('_pfam') < timeout:
         try:
-            response = requests.get(url, verify=False).content
+            response = requests.get(url, verify=True).content
         except Exception:
             pass
         else:
@@ -238,6 +238,9 @@ def fetchPfamMSA(acc, alignment='seed', compressed=False, **kwargs):
 
     if b'"list index out of range"' in response:
         raise ValueError('Could not find {0} alignment for {1}'.format(alignment, acc))
+
+    if response.status_code != 200:
+        raise ValueError('status code is {0}, not 200, so fetching failed'.format(response.status_code))
 
     outname = kwargs.get('outname', None)
     if not outname:
