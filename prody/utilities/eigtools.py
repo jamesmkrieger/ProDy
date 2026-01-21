@@ -80,6 +80,10 @@ def solveEig(M, n_modes=None, zeros=False, turbo=True, expct_n_zeros=None, rever
                 M = torch.from_numpy(M)
 
             values, vectors = linalg.eigh(M)
+
+            if linalg.__package__.startswith('torch'):
+                values, vectors = values.detach().numpy(), vectors.detach().numpy()
+                
         return values, vectors
 
     def _calc_n_zero_modes(M):
