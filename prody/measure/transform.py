@@ -157,11 +157,11 @@ def getTransformation(mob, tar, weights=None):
         matrix = torch.from_numpy(matrix)
 
     U, _, Vh = linalg.svd(matrix)
-
+    dot_U_Vh = np.dot(U, Vh)
     if linalg.__package__.startswith('torch'):
-        matrix = matrix.detach().numpy()
+        dot_U_Vh = torch.from_numpy(dot_U_Vh)
 
-    d = np.sign(linalg.det(np.dot(U, Vh)))
+    d = np.sign(linalg.det(dot_U_Vh))
     Id = np.array([[1, 0, 0],
                    [0, 1, 0],
                    [0, 0, d]])
