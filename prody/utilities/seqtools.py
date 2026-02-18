@@ -135,6 +135,19 @@ def alignBioPairwise(a_sequence, b_sequence,
                 elif len(row_2) < len(row_1):
                     row_2 += "-"*(len(row_1)-len(row_2))
 
+            row_1 = row_1.replace(" ", "")
+            row_2 = row_2.replace(" ", "")
+
+            a_sequence_prealignment = a_sequence[:a_sequence.find(row_1.replace('-',''))]
+            a_sequence_postalignment = a_sequence[a_sequence.find(row_1.replace('-','')[-3:])+3:]
+            row_1 = a_sequence_prealignment + row_1 + a_sequence_postalignment
+            row_2 = "-"*len(a_sequence_prealignment) + row_2 + "-"*len(a_sequence_postalignment)
+            
+            b_sequence_prealignment = b_sequence[:b_sequence.find(row_2.replace('-',''))]
+            b_sequence_postalignment = b_sequence[b_sequence.find(row_2.replace('-','')[-3:])+3:]
+            row_2 = b_sequence_prealignment + row_2 + b_sequence_postalignment
+            row_1 = "-"*len(b_sequence_prealignment) + row_1 + "-"*len(b_sequence_postalignment)
+
             results.append((row_1, row_2, aln.score, begin, end))
 
         return results
