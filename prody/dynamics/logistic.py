@@ -38,10 +38,11 @@ class LRA(NMA):
         :arg labels: a set of labels for discriminating classes
         :type labels: :class:`~numpy.ndarray`
 
-        :arg lasso: whether to use lasso regression (sets penalty='l1', solver='liblinear')
+        :arg lasso: whether to use lasso regression
+            This sets penalty='l1', solver='saga', max_iter=50000 if these are not set
             Default **True**
         :type lasso: bool
-        
+
         :arg n_shuffles: number of random shuffles of labels to assess variability
         :type n_shuffles: int
 
@@ -50,7 +51,7 @@ class LRA(NMA):
         try:
             from sklearn.linear_model import LogisticRegression
         except ImportError:
-            raise ImportError("Please install sklearn to use LogisticRegression")
+            raise ImportError("Please install scikit-learn to use LogisticRegression")
 
         start = time.time()
         self._clear()
@@ -93,9 +94,14 @@ class LRA(NMA):
                 LOGGER.warn('using provided penalty kwarg instead of l1 from lasso')
 
             if 'solver' not in kwargs:
-                kwargs['solver'] ='liblinear'
+                kwargs['solver'] ='saga'
             else:
-                LOGGER.warn('using provided solver kwarg instead of liblinear from lasso')
+                LOGGER.warn('using provided solver kwarg instead of saga for lasso')
+
+            if 'max_iter' not in kwargs:
+                kwargs['max_iter'] = 50000
+            else:
+                LOGGER.warn('using provided max_iter kwarg instead of 50000 that works for lasso')
 
         self._lra = LogisticRegression(**kwargs)
         self._projection = self._lra.fit(self._coordsets, self._labels)
