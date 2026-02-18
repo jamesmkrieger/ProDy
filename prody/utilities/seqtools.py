@@ -112,11 +112,11 @@ def alignBioPairwise(a_sequence, b_sequence,
                 import re
 
                 m1 = re.search('[0-9]+', split_aln[0])
-                begin = m1.group()
+                begin = int(m1.group())
 
                 m2 = re.search('[0-9]+', split_aln[-4])
                 m3 = re.search('[0-9]+', split_aln[-4][m2.end():])
-                end = m3.group()
+                end = int(m3.group())
 
                 row_1 = ''.join([line[m1.end()+1:] for line in split_aln[0:-4:4]])
                 row_1 += split_aln[-4][m2.end()+1:m2.end()+m3.start()-1]
@@ -124,8 +124,8 @@ def alignBioPairwise(a_sequence, b_sequence,
                 row_2 = ''.join([line[m1.end()+1:] for line in split_aln[2:-4:4]])
                 row_2 += split_aln[-2][m2.end()+1:m2.end()+m3.start()-1]
             else:
-                begin = split_aln[1].find('|')
-                end = len(split_aln[1])-1
+                begin = int(split_aln[1].find('|'))
+                end = int(len(split_aln[1])-1)
 
                 row_1 = split_aln[0].replace(" ", "-")
                 row_2 = split_aln[2].replace(" ", "-")
@@ -134,6 +134,21 @@ def alignBioPairwise(a_sequence, b_sequence,
                     row_1 += "-"*(len(row_2)-len(row_1))
                 elif len(row_2) < len(row_1):
                     row_2 += "-"*(len(row_1)-len(row_2))
+
+            if a_sequence[:begin] not in row_1:
+                row_1 = a_sequence[:begin] + row_1 + a_sequence[end:]
+            else:
+                row_1 = '-'*begin + row_1 + a_sequence[begin+end:]
+
+            if b_sequence[:begin] not in row_1:
+                row_2 = b_sequence[:begin] + row_2 + b_sequence[end:]
+            else:
+                row_2 = '-'*begin + row_2 + b_sequence[begin+end:]
+
+            if len(row_1) >= len(row_2):
+                row_2 = row_2 + '-'*(len(row_1)-len(row_2))
+            else:
+                row_1 = row_1 + '-'*(len(row_2)-len(row_1))
 
             results.append((row_1, row_2, aln.score, begin, end))
 
