@@ -80,7 +80,8 @@ def saveModel(nma, filename=None, matrices=False, **kwargs):
             type_ = 'GNM'
     elif isinstance(nma, LRA):
         type_ = 'LRA'
-        attr_list.extend(['_shuffled_lras',
+        attr_list.extend(['_labels',
+                          '_shuffled_lras',
                           '_n_shuffles',
                           '_coordsets_reshaped',
                           '_projection', '_lra',
