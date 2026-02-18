@@ -103,13 +103,18 @@ class LRA(NMA):
             else:
                 LOGGER.warn('using provided max_iter kwarg instead of 50000 that works for lasso')
 
+        # The general multi-class case has one array per class
+        self._n_modes = len(set(labels))
+
+        if self._n_modes == 2:
+            # binary classification just has one
+            self._n_modes = 1
+
         self._lra = LogisticRegression(**kwargs)
         self._projection = self._lra.fit(self._coordsets, self._labels)
         self._array = self._lra.coef_.T/np.linalg.norm(self._lra.coef_)
-        self._eigvals = np.ones(1)
-        self._vars = np.ones(1)
-
-        self._n_modes = 1
+        self._eigvals = np.ones(self._n_modes)
+        self._vars = np.ones(self._n_modes)
 
         if not quiet:
             if self._n_modes > 1:
@@ -120,13 +125,15 @@ class LRA(NMA):
                         .format(self._n_modes, time.time()-start))
 
             if self._n_shuffles > 0:
-                if self._n_modes > 1:
+                if self._n_modes > 1 and self._n_shuffles > 1:
                     LOGGER.debug('Calculating {0} modes for {1} shuffles.'
                         .format(self._n_modes, self._n_shuffles))
+                elif self._n_modes > 1 and self._n_shuffles == 1:
+                    LOGGER.debug('Calculating {0} modes for 1 shuffle.'
+                        .format(self._n_modes))
                 else:
-                    LOGGER.debug('Calculating {0} mode for {1} shuffles.'
-                        .format(self._n_modes, self._n_shuffles))
-            
+                    LOGGER.debug('Calculating 1 mode for 1 shuffle.')
+
         self._shuffled_lras = [LRA('shuffle '+str(n)) for n in range(self._n_shuffles)]
         self._coordsets_reshaped = self._coordsets.reshape(self._coordsets.shape[0], self._n_atoms, -1)
 
