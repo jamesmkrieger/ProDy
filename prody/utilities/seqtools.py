@@ -138,15 +138,23 @@ def alignBioPairwise(a_sequence, b_sequence,
             row_1 = row_1.replace(" ", "")
             row_2 = row_2.replace(" ", "")
 
-            a_sequence_prealignment = a_sequence[:a_sequence.find(row_1.replace('-',''))]
-            a_sequence_postalignment = a_sequence[a_sequence.find(row_1.replace('-','')[-3:])+3:]
-            row_1 = a_sequence_prealignment + row_1 + a_sequence_postalignment
-            row_2 = "-"*len(a_sequence_prealignment) + row_2 + "-"*len(a_sequence_postalignment)
+            a_seq_pre = a_sequence[:a_sequence.find(row_1.replace('-',''))]
+            a_seq_post = a_sequence[a_sequence.find(row_1.replace('-','')[-3:])+3:]
+            row_1 = a_seq_pre + row_1 + a_seq_post
             
-            b_sequence_prealignment = b_sequence[:b_sequence.find(row_2.replace('-',''))]
-            b_sequence_postalignment = b_sequence[b_sequence.find(row_2.replace('-','')[-3:])+3:]
-            row_2 = b_sequence_prealignment + row_2 + b_sequence_postalignment
-            row_1 = "-"*len(b_sequence_prealignment) + row_1 + "-"*len(b_sequence_postalignment)
+            b_seq_pre = b_sequence[:b_sequence.find(row_2.replace('-',''))]
+            b_seq_post = b_sequence[b_sequence.find(row_2.replace('-','')[-3:])+3:]
+            row_2 = b_seq_pre + row_2 + b_seq_post
+
+            if len(b_seq_pre) > len(a_seq_pre):
+                row_1 = "-"*(len(b_seq_pre)-len(a_seq_pre)) + row_1
+            else:
+                row_2 = "-"*(len(a_seq_pre)-len(b_seq_pre)) + row_2
+
+            if len(b_seq_post) > len(a_seq_post):
+                row_1 = row_1 + "-"*(len(b_seq_post)-len(a_seq_post))
+            else:
+                row_2 = row_2 + "-"*(len(a_seq_post)-len(b_seq_post))
 
             results.append((row_1, row_2, aln.score, begin, end))
 
