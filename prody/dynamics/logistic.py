@@ -8,6 +8,7 @@ import numpy as np
 from prody import LOGGER
 from prody.atomic import Atomic
 from prody.ensemble import Ensemble
+from prody.trajectory import DCDFile
 from prody.utilities import isListLike
 
 from .nma import NMA
@@ -61,10 +62,10 @@ class LRA(NMA):
                     coordsets.dtype not in (np.float32, float)):
                 raise ValueError('coordsets is not a valid coordinate array')
             self._coordsets = coordsets
-        elif isinstance(coordsets, Atomic):
+        elif isinstance(coordsets, (Atomic, Ensemble)):
             self._coordsets = coordsets._getCoordsets()
-        elif isinstance(coordsets, Ensemble):
-            self._coordsets = coordsets._getCoordsets()
+        elif isinstance(coordsets, DCDFile):
+            self._coordsets = coordsets.getCoordsets()
         else:
             raise TypeError('coordsets should be Atomic, Ensemble or numpy.ndarray, not {0}'
                             .format(type(coordsets)))
