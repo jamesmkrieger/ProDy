@@ -26,3 +26,4 @@ dependencies:
   - pip:
     - mmtf-python
     - scikit-learn
+    - scikit-learn-extra
