@@ -58,7 +58,7 @@ def prody_lra(coords, **kwargs):
 
     nproc = kwargs.get('nproc')
     nShuffles = kwargs.get('nShuffles')
-    labels = kwargs.get('labels')
+    labels = eval(kwargs.get('labels'))
 
     ext = splitext(coords)[1].lower()
     if ext == '.gz':
@@ -306,7 +306,7 @@ The default value of nmodes is 1 for separating 2 clusters.
         default=DEFAULTS['nShuffles'], help=HELPTEXT['nShuffles'])
     
     group.add_argument('-l', '--labels', dest='labels',
-        type=int,
+        type=str,
         default=DEFAULTS['labels'], help=HELPTEXT['labels'])
     
     group.add_argument('-n', '--number-of-modes', dest='nmodes', type=int,
