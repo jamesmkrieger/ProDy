@@ -17,7 +17,7 @@ for key, txt, val in [
                 '"1,2 1,3" for projections onto LRCs 1,2 and 1,3; '
                 '"1 1,2,3" for projections onto LRCs 1 and 1, 2, 3', ''),
     ('nShuffles', 'number of random shuffles to make', 10),
-    ('labels', 'labels for classes to separate. If None, get them from k-medoids clustering using nmodes+1', None),
+    ('labels', 'labels for classes to separate. If None, get them from k-medoids clustering using nmodes+1', 'None'),
     ('nmodes', 'number of modes of separation to calculate if labels is None', 1)]:
 
     DEFAULTS[key] = val
@@ -122,17 +122,17 @@ def prody_lra(coords, **kwargs):
     if labels is None:
         _, labels, _ = prody.calcKmedoidClusters(ensemble.getCoordsets(), nmodes+1)
 
-        nproc = kwargs.get('nproc')
-        if nproc:
-            try:
-                from threadpoolctl import threadpool_limits
-            except ImportError:
-                raise ImportError('Please install threadpoolctl to control threads')
+    nproc = kwargs.get('nproc')
+    if nproc:
+        try:
+            from threadpoolctl import threadpool_limits
+        except ImportError:
+            raise ImportError('Please install threadpoolctl to control threads')
 
-            with threadpool_limits(limits=nproc, user_api="blas"):
-                lra.calcModes(ensemble, labels, n_shuffles=nShuffles)
-        else:
+        with threadpool_limits(limits=nproc, user_api="blas"):
             lra.calcModes(ensemble, labels, n_shuffles=nShuffles)
+    else:
+        lra.calcModes(ensemble, labels, n_shuffles=nShuffles)
 
     LOGGER.info('Writing numerical output.')
     if kwargs.get('outnpz'):
