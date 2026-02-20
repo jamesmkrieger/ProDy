@@ -21,7 +21,7 @@ dependencies:
   - openmm
   - clustalw
   - scikit-learn
-  - scikit-learn-extra
+  - kmedoids
 
   # Pip packages
   - pip

@@ -1247,14 +1247,14 @@ def calcRMSDclusters(rmsd_matrix, c, labels=None):
 calcGromosClusters = calcRMSDclusters
 calcGromacsClusters = calcRMSDclusters
 
-def calcKmedoidClusters(coordsets, nClusters):
+def calcKmedoidClusters(ensemble, nClusters):
     try:
-        from sklearn_extra.cluster import KMedoids
+        from kmedoids import KMedoids
     except ImportError:
-        raise ImportError('Please install scikit-learn-extra to run this function')
+        raise ImportError('Please install kmedoids to run this function')
     
-    X = coordsets.reshape(coordsets.shape[0], -1)
-    c = KMedoids(n_clusters=nClusters, random_state=0).fit(X)
+    rmsd_mat = ensemble.getRMSDs(pairwise=True)
+    c = KMedoids(n_clusters=nClusters, random_state=0).fit(rmsd_mat)
     labels = c.labels_
     _, counts = np.unique(labels, return_counts=True)
     return c.medoid_indices_, labels, counts
