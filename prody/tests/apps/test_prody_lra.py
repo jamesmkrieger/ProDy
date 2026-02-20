@@ -14,9 +14,6 @@ from prody.apps import prody_parser
 
 from prody.tests import MATPLOTLIB, NOPRODYCMD, WINDOWS
 
-# NEW: Import ProDy functions to generate valid test data
-from prody import parsePDB, writePDB, writeDCD
-
 class TestLRACommand(TestCase):
 
     def setUp(self):
