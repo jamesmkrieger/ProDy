@@ -1248,6 +1248,14 @@ calcGromosClusters = calcRMSDclusters
 calcGromacsClusters = calcRMSDclusters
 
 def calcKmedoidClusters(ensemble, nClusters):
+    """
+    calculate Kmedoids clusters for an ensemble
+    and return indices, labels and counts
+
+    :arg ensemble: ensemble from which to calculate RMSDs
+        This needs to have reference coords
+    :type ensemble: :class:`.Ensemble`, :class:`.PDBEnsemble`
+    """
     try:
         from kmedoids import KMedoids
     except ImportError:
