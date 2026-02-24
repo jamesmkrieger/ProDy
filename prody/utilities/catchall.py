@@ -308,7 +308,8 @@ def calcTree(names, distance_matrix, method='upgma', linkage=False):
     :type linkage: bool
     """
             
-    from .TreeConstruction import DistanceMatrix, DistanceTreeConstructor
+    from .TreeConstruction import DistanceTreeConstructor
+    from Bio.Phylo.TreeConstruction import _DistanceMatrix as DistanceMatrix
     
     if len(names) != distance_matrix.shape[0] or len(names) != distance_matrix.shape[1]:
         raise ValueError("Mismatch between the sizes of matrix and names.")
