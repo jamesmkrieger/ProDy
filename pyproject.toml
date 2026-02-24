@@ -12,7 +12,7 @@ name = "ProDy"
 dynamic = ["version"]  # The version is read from prody/__init__.py
 description = "A Python Package for Protein Dynamics Analysis"
 readme = "README.rst"
-requires-python = ">=3.10" # Based on the logic in your setup.py
+requires-python = ">=3.8" # Based on the logic in your setup.py
 license = { text = "MIT License" }
 keywords = [
     "protein", "dynamics", "elastic network model",
