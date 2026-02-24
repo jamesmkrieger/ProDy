@@ -15,7 +15,7 @@ import itertools
 import copy
 import numbers
 
-__all__ = ['_Matrix', 'DistanceMatrix', 'TreeConstructor', 'DistanceTreeConstructor']
+__all__ = ['_Matrix', 'TreeConstructor', 'DistanceTreeConstructor']
 
 class _Matrix:
     """Base class for distance matrix or scoring matrix.
