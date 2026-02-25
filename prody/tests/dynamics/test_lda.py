@@ -5,6 +5,7 @@ from numpy.testing import assert_allclose, assert_equal
 
 from prody.utilities import calcTree, findSubgroups
 from prody.dynamics import LDA
+from prody.ensemble import PDBEnsemble
 from prody import LOGGER
 from prody.tests import unittest
 from prody.tests.datafiles import parseDatafile
@@ -14,7 +15,7 @@ LOGGER.verbosity = 'none'
 ATOL = 1e-5
 RTOL = 0
 
-ENSEMBLE = parseDatafile('2k39_insty_dcd')
+ENSEMBLE = PDBEnsemble(parseDatafile('2k39_insty_dcd'))
 
 RMSD_MATRIX = ENSEMBLE.getRMSDs(pairwise=True)
 RMSD_TREE = calcTree(ENSEMBLE.getLabels(), RMSD_MATRIX)
