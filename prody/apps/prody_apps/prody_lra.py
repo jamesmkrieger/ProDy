@@ -97,7 +97,9 @@ def prody_lra(coords, **kwargs):
             select.setCoords(dcd.getCoords())
 
         lra = prody.LRA(dcd.getTitle())
-        ensemble = dcd
+        ensemble = prody.Ensemble(dcd)
+        ensemble.setCoords(dcd.getCoords())
+        ensemble.addCoordset(dcd.getCoordsets())
     else:
         pdb = prody.parsePDB(coords)
         if pdb.numCoordsets() < 2:
@@ -120,7 +122,7 @@ def prody_lra(coords, **kwargs):
             ensemble.iterpose()
 
     if labels is None:
-        _, labels, _ = prody.calcKmedoidClusters(ensemble.getCoordsets(), nmodes+1)
+        _, labels, _ = prody.calcKmedoidClusters(ensemble, nmodes+1)
 
     nproc = kwargs.get('nproc')
     if nproc:

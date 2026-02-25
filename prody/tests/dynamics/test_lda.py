@@ -1,24 +1,20 @@
 """This module contains unit tests for :mod:`~prody.dynamics`."""
 
 import numpy as np
-from numpy import arange
-from numpy.testing import *
-from prody.utilities import importDec
-dec = importDec()
+from numpy.testing import assert_allclose, assert_equal
 
-from prody import *
+from prody.utilities import calcTree, findSubgroups
+from prody.dynamics import LDA
 from prody import LOGGER
 from prody.tests import unittest
-from prody.tests.datafiles import *
+from prody.tests.datafiles import parseDatafile
 
 LOGGER.verbosity = 'none'
 
 ATOL = 1e-5
 RTOL = 0
 
-ATOMS = parseDatafile('2k39_ca')
-COORDSETS = ATOMS.getCoordsets()
-ENSEMBLE = refineEnsemble(PDBEnsemble(ATOMS), lower=0., upper=5.)
+ENSEMBLE = parseDatafile('2k39_insty_dcd')
 
 RMSD_MATRIX = ENSEMBLE.getRMSDs(pairwise=True)
 RMSD_TREE = calcTree(ENSEMBLE.getLabels(), RMSD_MATRIX)
