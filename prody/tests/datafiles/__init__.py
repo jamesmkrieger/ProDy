@@ -12,7 +12,7 @@ import numpy as np
 
 from prody import parsePDB, parseDCD, parseMMCIF, parseMMTF
 from prody import parseSparseMatrix, parseArray, parseTree, loadModel
-from prody.tests import TESTDIR
+from prody.tests import TEMPDIR, TESTDIR # here for others to import
 
 
 DATA_FILES = {
