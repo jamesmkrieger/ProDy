@@ -47,7 +47,9 @@ for key, txt, val in [
     ('fit_resolution', 'resolution for blurring structures for fitting cc', 5),
     ('map_cutoff', 'min_cutoff for passing map for fitting', 0),
     ('replace_filtered', 'whether to keep sampling again to replace filtered conformers', False),
-    ('platform', 'openmm platform (OpenCL, CUDA, CPU or None)', None)]:
+    ('platform', 'openmm platform (OpenCL, CUDA, CPU or None)', None),
+    ('gpu_ids', 'gpu id string', '0'),
+]:
 
     DEFAULTS[key] = val
     HELPTEXT[key] = txt
@@ -347,6 +349,10 @@ graphical output files:
     group.add_argument('-V', '--platform', dest='platform', type=str,
         default=DEFAULTS['platform'], metavar='STR',
         help=HELPTEXT['platform'] + ' (default: %(default)s)')
+
+    group.add_argument('-h', '--gpu-ids', dest='gpu_ids', type=str,
+        default=DEFAULTS['gpu_ids'], metavar='STR',
+        help=HELPTEXT['gpu_ids'] + ' (default: %(default)s)')
 
     subparser.add_argument('pdb', help='PDB identifier or filename')
 
