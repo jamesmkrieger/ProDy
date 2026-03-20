@@ -350,7 +350,7 @@ graphical output files:
         default=DEFAULTS['platform'], metavar='STR',
         help=HELPTEXT['platform'] + ' (default: %(default)s)')
 
-    group.add_argument('-h', '--gpu-ids', dest='gpu_ids', type=str,
+    group.add_argument('-U', '--gpu-ids', dest='gpu_ids', type=str,
         default=DEFAULTS['gpu_ids'], metavar='STR',
         help=HELPTEXT['gpu_ids'] + ' (default: %(default)s)')
 
