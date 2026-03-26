@@ -1,4 +1,4 @@
-from prody.proteins.pdbfile import parsePDB, writePDBStream, parsePDBStream
+from prody.proteins.pdbfile import parsePDB, writePDBStream, parsePDBStream, writePDB
 from prody.measure.transform import calcRMSD, calcTransformation, getRMSD, applyTransformation
 from prody.measure.measure import buildDistMatrix, calcDeformVector
 from prody.ensemble.ensemble import Ensemble
@@ -8,7 +8,7 @@ norm = importLA().norm
 
 from prody import LOGGER
 
-from numpy import *
+# from numpy import *
 import numpy as np
 from multiprocessing import cpu_count, Pool
 from random import random
@@ -16,12 +16,12 @@ import os.path
 import sys
 from decimal import Decimal, ROUND_HALF_UP
 
-from .adaptive import ONEWAY, ALTERNATING, SERIAL, DEFAULT
-from .hybrid import Hybrid
-from .nma import NMA
-from .gnm import GNM, ZERO
-from .anm import ANM
-from .sampling import traverseMode
+from prody.dynamics.adaptive import ONEWAY, ALTERNATING, SERIAL, DEFAULT
+from prody.dynamics.hybrid import Hybrid
+from prody.dynamics.nma import NMA
+from prody.dynamics.gnm import GNM, ZERO
+from prody.dynamics.anm import ANM
+from prody.dynamics.sampling import traverseMode
 
 __all__ = ['calcANMMC', 'CoMD']
 
@@ -44,6 +44,9 @@ def calcANMMC(initial, final, **kwargs):
 
     original_final_pdb = kwargs.pop('original_final_pdb', final.getTitle())
 
+    ensemble_final = kwargs.pop('ensemble_final', None)
+    save_all_coords = kwargs.pop('save_all_coords', False)
+
     if usePseudoatoms:
         initial_ca = initial
         final_ca = final
@@ -57,9 +60,15 @@ def calcANMMC(initial, final, **kwargs):
     pdb_anm.buildHessian(initial_ca, cutoff=anm_cut, **kwargs)
     pdb_anm.calcModes(n_modes=n_modes, **kwargs)
 
+    if ensemble_final is None:
+        # Build an ensemble for writing the final structure to a dcd file
+        ensemble_final = Ensemble()
+        ensemble_final.setAtoms(initial_ca)
+        ensemble_final.setCoords(initial_ca)
+
     # Cumulative sum vector preparation for metropolis sampling
-    eigs = 1/sqrt(pdb_anm.getEigvals())
-    eigs_n = zeros(eigs.shape)
+    eigs = 1/np.sqrt(pdb_anm.getEigvals())
+    eigs_n = np.zeros(eigs.shape)
     eigs_n = eigs / sum(eigs)
     eigscumsum = eigs_n.cumsum()
     U = pdb_anm.getEigvecs()
@@ -86,14 +95,14 @@ def calcANMMC(initial, final, **kwargs):
     # read MC parameter from file
     if (os.path.isfile(initial_pdb_id + '_ratio.dat') and
             os.stat(initial_pdb_id + '_ratio.dat').st_size != 0):
-        MCpara = loadtxt(initial_pdb_id + '_ratio.dat')
+        MCpara = np.loadtxt(initial_pdb_id + '_ratio.dat')
         accept_para = MCpara[4]
         if MCpara[1] > acceptance_ratio + 0.05:
             accept_para *= 1.5
         elif MCpara[1] < acceptance_ratio - 0.05:
             accept_para /= 1.5
         else:
-            savetxt(initial_pdb_id + '_status.dat',[1])
+            np.savetxt(initial_pdb_id + '_status.dat',[1])
     else:
         accept_para = 0.1
 
@@ -107,13 +116,10 @@ def calcANMMC(initial, final, **kwargs):
         
         native_dist = buildDistMatrix(final_ca)
         dist = buildDistMatrix(initial_ca)
-        Ep = sum((native_dist - dist)**2)
+        Ep = np.sum((native_dist - dist)**2)
 
     # Reset pdb_ca (the current structure whole the steps back to the original)
     pdb_ca = initial_ca
-
-    step_count = 0
-    check_step_counts = [0]
 
     if log:
         sys.stdout.write(' '*2 + 'rmsd' + ' '*2 + 'rand' + ' '*2 + 'ID' + ' '*3 + 'step'
@@ -123,7 +129,7 @@ def calcANMMC(initial, final, **kwargs):
     for k in range(N):
         pdb_ca_temp = pdb_ca.copy()
         rand = random()
-        ID = argmax(rand<eigscumsum)
+        ID = np.argmax(rand<eigscumsum)
         direction = 2*(random()>0.5)-1
 
         coords_temp = pdb_ca_temp.getCoords()
@@ -134,7 +140,7 @@ def calcANMMC(initial, final, **kwargs):
 
         if original_initial_pdb != original_final_pdb:   
             dist = buildDistMatrix(pdb_ca_temp)
-            En = sum((native_dist - dist)**2)
+            En = np.sum((native_dist - dist)**2)
 
             # Check whether you are heading the right way and accept uphill moves 
             # depending on the Metropolis criterion. Classically this depends on RT 
@@ -146,7 +152,7 @@ def calcANMMC(initial, final, **kwargs):
                 Ep = En
                 accepted = 1
 
-            elif exp(-(En-Ep) * accept_para) > random():
+            elif np.exp(-(En-Ep) * accept_para) > random():
                 pdb_ca = pdb_ca_temp.copy()
                 count1 += 1
                 count2 += 1
@@ -162,7 +168,7 @@ def calcANMMC(initial, final, **kwargs):
             else:
                 f = float(count2)/float(count1)
 
-            if (mod(k,5)==0 and not(k==0)):
+            if (np.mod(k,5)==0 and not(k==0)):
                 # Update of the accept_para to keep the MC para reasonable
                 # See comment lines above. 
                 if f > acceptance_ratio + 0.05:
@@ -170,7 +176,8 @@ def calcANMMC(initial, final, **kwargs):
                 elif f < acceptance_ratio - 0.05:
                     accept_para *= 1.5
 
-            if accept_para < 0.001: accept_para = 0.001
+            if accept_para < 0.001:
+                accept_para = 0.001
 
         else:
             # for exploration based on one structure
@@ -186,14 +193,13 @@ def calcANMMC(initial, final, **kwargs):
             sys.stdout.write('{:6.2f}'.format(rmsd) + ' ' + '{:5.2f}'.format(rand) +
                              '{:4d}'.format(ID) + '{:7d}'.format(k) + ' '*2 + str(accepted) + ' '*2 +
                              '{:5.4e}'.format(accept_para) + ' '*2 + '{:5.4f}'.format(f) + '\n')
+            
+        if save_all_coords:
+            ensemble_final.addCoordset(pdb_ca.getCoords())
 
         if rmsd > stepcutoff:
             break
-        
-    # Build an ensemble for writing the final structure to a dcd file
-    ensemble_final = Ensemble()
-    ensemble_final.setAtoms(initial_ca)
-    ensemble_final.setCoords(initial_ca)
+
     ensemble_final.addCoordset(pdb_ca.getCoords())
 
     return ensemble_final, count1, count2, count3, k, accept_para, rmsd
@@ -355,7 +361,6 @@ class CoMD(Hybrid):
 
         try:
             from simtk.openmm import CustomExternalForce
-            from simtk.openmm.app import StateDataReporter
             from simtk.unit import nanometer, angstrom, kilocalorie_per_mole, kilojoule_per_mole
         except ImportError:
             raise ImportError('Please install PDBFixer and OpenMM in order to use Hybrid.')
@@ -925,8 +930,8 @@ class CoMD(Hybrid):
 
 if __name__ == '__main__':
 
-    from prody import *
-    from numpy import *
+    from prody import parsePDB, calcANMMC, writeDCD
+    import numpy as np
     import time
 
     time.sleep(10)
@@ -998,6 +1003,16 @@ if __name__ == '__main__':
     else:
         usePseudoatoms = 0
 
+    if len(ar) > 13 and ar[13].strip() != '0':
+        save_all_coords = int(ar[13])
+    else:
+        save_all_coords = 0
+
+    if len(ar) > 14 and ar[14].strip() != '0':
+        write_many_pdbs = int(ar[14])
+    else:
+        write_many_pdbs = 0
+
     initial_pdb = parsePDB(initial_pdbn)
     final_pdb = parsePDB(final_pdbn)
 
@@ -1009,9 +1024,15 @@ if __name__ == '__main__':
                                                                              devi=devi, stepcutoff=stepcutoff,
                                                                              acceptance_ratio=acceptance_ratio,
                                                                              anm_cut=anm_cut, N=N,
-                                                                             usePseudoatoms=usePseudoatoms)
+                                                                             usePseudoatoms=usePseudoatoms,
+                                                                             save_all_coords=save_all_coords)
     writeDCD(final_structure_dcd_name, ensemble_final)
 
+    if write_many_pdbs:
+        for i, coordset in enumerate(ensemble_final.getCoordsets()):
+            initial_pdb.setCoords(coordset)
+            writePDB(final_structure_dcd_name.replace(".dcd", f"_{i:06d}.pdb"), initial_pdb)
+
     ratios = [count2/N, count2/count1 if count1 != 0 else 0, count2, k, accept_para ]
-    savetxt(initial_pdb_id + '_ratio.dat', ratios, fmt='%.2e')
+    np.savetxt(initial_pdb_id + '_ratio.dat', ratios, fmt='%.2e')
 
