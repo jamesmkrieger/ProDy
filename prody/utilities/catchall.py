@@ -8,8 +8,7 @@ from .checkers import checkCoords
 from .logger import LOGGER
 
 
-__all__ = ['calcTree', 'writeTree', 'parseTree',
-           'clusterMatrix',
+__all__ = ['calcTree', 'clusterMatrix', 
            'showLines', 'showMatrix', 'showBars', 
            'reorderMatrix', 'findSubgroups', 'getCoords',  
            'getLinkage', 'getTreeFromLinkage', 'clusterSubfamilies', 
@@ -240,7 +239,7 @@ def getTreeFromLinkage(names, linkage):
     :arg linkage: linkage matrix
     :type linkage: :class:`~numpy.ndarray`
     """
-    try:
+    try: 
         from Bio.Phylo.BaseTree import Tree, Clade
     except ImportError:
         raise ImportError('Phylo module could not be imported. '
@@ -309,8 +308,7 @@ def calcTree(names, distance_matrix, method='upgma', linkage=False):
     :type linkage: bool
     """
             
-    from .TreeConstruction import DistanceTreeConstructor
-    from Bio.Phylo.TreeConstruction import _DistanceMatrix as DistanceMatrix
+    from .TreeConstruction import DistanceMatrix, DistanceTreeConstructor
     
     if len(names) != distance_matrix.shape[0] or len(names) != distance_matrix.shape[1]:
         raise ValueError("Mismatch between the sizes of matrix and names.")
@@ -368,7 +366,7 @@ def writeTree(filename, tree, format_str='newick'):
     :arg format_str: a string specifying the format for the tree
     :type format_str: str
     """
-    try:
+    try: 
         from Bio import Phylo
     except ImportError:
         raise ImportError('Phylo module could not be imported. '
@@ -386,29 +384,6 @@ def writeTree(filename, tree, format_str='newick'):
 
     Phylo.write(tree, filename, format_str)
 
-def parseTree(filename, format_str='newick'):
-    """ Parse a tree from a file using Biopython.
-
-    :arg filename: name for output file
-    :type filename: str
-
-    :arg format_str: a string specifying the format for the tree
-    :type format_str: str
-    """
-    try:
-        from Bio import Phylo
-    except ImportError:
-        raise ImportError('Phylo module could not be imported. '
-            'Reinstall ProDy or install Biopython '
-            'to solve the problem.')
-
-    if not isinstance(filename, str):
-        raise TypeError('filename should be a string')
-
-    if not isinstance(format_str, str):
-        raise TypeError('format_str should be a string')
-
-    return Phylo.read(filename, format_str)
 
 def clusterMatrix(distance_matrix=None, similarity_matrix=None, labels=None, return_linkage=None, **kwargs):
     """
@@ -1272,22 +1247,14 @@ def calcRMSDclusters(rmsd_matrix, c, labels=None):
 calcGromosClusters = calcRMSDclusters
 calcGromacsClusters = calcRMSDclusters
 
-def calcKmedoidClusters(ensemble, nClusters):
-    """
-    calculate Kmedoids clusters for an ensemble
-    and return indices, labels and counts
-
-    :arg ensemble: ensemble from which to calculate RMSDs
-        This needs to have reference coords
-    :type ensemble: :class:`.Ensemble`, :class:`.PDBEnsemble`
-    """
+def calcKmedoidClusters(coordsets, nClusters):
     try:
         from sklearn_extra.cluster import KMedoids
     except ImportError:
-        raise ImportError('Please install kmedoids to run this function')
+        raise ImportError('Please install scikit-learn-extra to run this function')
     
-    rmsd_mat = ensemble.getRMSDs(pairwise=True)
-    c = KMedoids(n_clusters=nClusters, random_state=0).fit(rmsd_mat)
+    X = coordsets.reshape(coordsets.shape[0], -1)
+    c = KMedoids(n_clusters=nClusters, random_state=0).fit(X)
     labels = c.labels_
     _, counts = np.unique(labels, return_counts=True)
     return c.medoid_indices_, labels, counts
