@@ -1282,7 +1282,7 @@ def calcKmedoidClusters(ensemble, nClusters):
     :type ensemble: :class:`.Ensemble`, :class:`.PDBEnsemble`
     """
     try:
-        from kmedoids import KMedoids
+        from sklearn_extra.cluster import KMedoids
     except ImportError:
         raise ImportError('Please install kmedoids to run this function')
     
