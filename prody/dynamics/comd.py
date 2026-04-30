@@ -1016,6 +1016,12 @@ if __name__ == '__main__':
     initial_pdb = parsePDB(initial_pdbn)
     final_pdb = parsePDB(final_pdbn)
 
+    if not usePseudoatoms:
+        # assume they are normal atoms and select atoms named CA in regular case or BB in coarse-grained case
+        # This then matches what happens inside calcANMMC
+        initial_pdb = initial_pdb.select("name CA or name BB").copy()
+        final_pdb = final_pdb.select("name CA or name BB").copy()
+
     ensemble_final, count1, count2, count3, k, accept_para, rmsd = calcANMMC(initial_pdb, final_pdb,
                                                                              initial_pdb_id=initial_pdb_id,
                                                                              original_initial_pdb=original_initial_pdb,
