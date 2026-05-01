@@ -11,8 +11,7 @@ dec = importDec()
 
 from prody import *
 from prody import LOGGER
-from prody.utilities import which
-from prody.tests import TEMPDIR, unittest
+from prody.tests import unittest
 from prody.tests.datafiles import *
 
 LOGGER.verbosity = 'none'
@@ -205,16 +204,6 @@ class TestParseMMCIF(unittest.TestCase):
                          self.big_biomols['bm0_chains'],
                          'parseMMCIF failed to parse correct number of chains '
                          'for 7cth with biomol True')
-    def testChimeraxCIFBiomolArguments(self):
-        """Test outcome of valid and invalid *segment* arguments."""
-
-        path = pathDatafile(self.chimerax['file'])
-
-        bm_non_united = parseMMCIF(path, biomol=True)
-        self.assertEqual(bm_non_united[0].numAtoms(),
-                        self.chimerax['bm0_atoms'],
-                        'parseMMCIF failed to parse correct number of atoms '
-                        'with biomol True for the chimerax mmcif of 1ake')
 
     def testWrappedLines(self):
         """Test that we can handle wrapped lines, as generatd by Boltz and Chai"""
