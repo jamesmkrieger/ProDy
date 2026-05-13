@@ -1013,32 +1013,52 @@ if __name__ == '__main__':
     else:
         write_many_pdbs = 0
 
+    if len(ar) > 15 and ar[15].strip() != '0':
+        run_comd = True
+    else:
+        run_comd = False
+
+    if len(ar) > 16 and ar[16].strip() != '0':
+        comd_gens=int(ar[16])
+    else:
+        comd_gens=5
+
     initial_pdb = parsePDB(initial_pdbn)
     final_pdb = parsePDB(final_pdbn)
 
-    if not usePseudoatoms:
-        # assume they are normal atoms and select atoms named CA in regular case or BB in coarse-grained case
-        # This then matches what happens inside calcANMMC
-        initial_pdb = initial_pdb.select("name CA or name BB").copy()
-        final_pdb = final_pdb.select("name CA or name BB").copy()
+    if run_comd:
+        ensemble_final = CoMD()
+        ensemble_final.setAtoms(initial_pdb, final_pdb)
+        ensemble_final.run(
+            n_gens=comd_gens, devi=devi, 
+            stepcutoff=stepcutoff,
+            acceptance_ratio=acceptance_ratio,
+            anm_cut=anm_cut, N=N,
+        )
+    else:
+        if not usePseudoatoms:
+            # assume they are normal atoms and select atoms named CA in regular case or BB in coarse-grained case
+            # This then matches what happens inside calcANMMC
+            initial_pdb = initial_pdb.select("name CA or name BB").copy()
+            final_pdb = final_pdb.select("name CA or name BB").copy()
 
-    ensemble_final, count1, count2, count3, k, accept_para, rmsd = calcANMMC(initial_pdb, final_pdb,
-                                                                             initial_pdb_id=initial_pdb_id,
-                                                                             original_initial_pdb=original_initial_pdb,
-                                                                             original_final_pdb=original_final_pdb,
-                                                                             comd_cycle_number=comd_cycle_number,
-                                                                             devi=devi, stepcutoff=stepcutoff,
-                                                                             acceptance_ratio=acceptance_ratio,
-                                                                             anm_cut=anm_cut, N=N,
-                                                                             usePseudoatoms=usePseudoatoms,
-                                                                             save_all_coords=save_all_coords)
+        ensemble_final, count1, count2, count3, k, accept_para, rmsd = calcANMMC(initial_pdb, final_pdb,
+                                                                                 initial_pdb_id=initial_pdb_id,
+                                                                                 original_initial_pdb=original_initial_pdb,
+                                                                                 original_final_pdb=original_final_pdb,
+                                                                                 comd_cycle_number=comd_cycle_number,
+                                                                                 devi=devi, stepcutoff=stepcutoff,
+                                                                                 acceptance_ratio=acceptance_ratio,
+                                                                                 anm_cut=anm_cut, N=N,
+                                                                                 usePseudoatoms=usePseudoatoms,
+                                                                                 save_all_coords=save_all_coords)
+        
+        ratios = [count2/N, count2/count1 if count1 != 0 else 0, count2, k, accept_para ]
+        np.savetxt(initial_pdb_id + '_ratio.dat', ratios, fmt='%.2e')
+
     writeDCD(final_structure_dcd_name, ensemble_final)
 
     if write_many_pdbs:
         for i, coordset in enumerate(ensemble_final.getCoordsets()):
             initial_pdb.setCoords(coordset)
             writePDB(final_structure_dcd_name.replace(".dcd", f"_{i:06d}.pdb"), initial_pdb)
-
-    ratios = [count2/N, count2/count1 if count1 != 0 else 0, count2, k, accept_para ]
-    np.savetxt(initial_pdb_id + '_ratio.dat', ratios, fmt='%.2e')
-
