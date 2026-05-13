@@ -225,7 +225,7 @@ class CoMD(Hybrid):
         self._indicesB = None
         
         self._defvecs = []
-        self._rmsds = []
+        self._rmsd = []
         self._traj_rmsds = []
         self._cg_ensA = Ensemble(title=title)
         self._cg_ensB = Ensemble(title=title)
@@ -1023,6 +1023,11 @@ if __name__ == '__main__':
     else:
         comd_gens=6
 
+    if len(ar) > 17 and ar[17].strip() != '0':
+        comd_gens=int(ar[17])
+    else:
+        comd_gens=DEFAULT
+
     initial_pdb = parsePDB(initial_pdbn)
     final_pdb = parsePDB(final_pdbn)
 
@@ -1031,7 +1036,7 @@ if __name__ == '__main__':
         ensemble_final.setAtoms(initial_pdb, final_pdb)
         ensemble_final.run(
             n_gens=comd_gens, devi=devi, 
-            stepcutoff=stepcutoff,
+            rmsd=stepcutoff,
             acceptance_ratio=acceptance_ratio,
             anm_cut=anm_cut, N=N,
         )
