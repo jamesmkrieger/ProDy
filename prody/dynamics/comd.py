@@ -1027,7 +1027,7 @@ if __name__ == '__main__':
     final_pdb = parsePDB(final_pdbn)
 
     if run_comd:
-        ensemble_final = CoMD()
+        ensemble_final = CoMD("")
         ensemble_final.setAtoms(initial_pdb, final_pdb)
         ensemble_final.run(
             n_gens=comd_gens, devi=devi, 
