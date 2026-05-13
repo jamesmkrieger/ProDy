@@ -1021,7 +1021,7 @@ if __name__ == '__main__':
     if len(ar) > 16 and ar[16].strip() != '0':
         comd_gens=int(ar[16])
     else:
-        comd_gens=5
+        comd_gens=6
 
     initial_pdb = parsePDB(initial_pdbn)
     final_pdb = parsePDB(final_pdbn)
