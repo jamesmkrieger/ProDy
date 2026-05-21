@@ -1024,9 +1024,9 @@ if __name__ == '__main__':
         comd_gens=6
 
     if len(ar) > 17 and ar[17].strip() != '0':
-        comd_gens=int(ar[17])
+        comd_mode=int(ar[17])
     else:
-        comd_gens=DEFAULT
+        comd_mode=DEFAULT
 
     initial_pdb = parsePDB(initial_pdbn)
     final_pdb = parsePDB(final_pdbn)
@@ -1035,7 +1035,8 @@ if __name__ == '__main__':
         ensemble_final = CoMD("")
         ensemble_final.setAtoms(initial_pdb, final_pdb)
         ensemble_final.run(
-            n_gens=comd_gens, devi=devi, 
+            n_gens=comd_gens, mode=comd_mode,
+            devi=devi,
             rmsd=stepcutoff,
             acceptance_ratio=acceptance_ratio,
             anm_cut=anm_cut, N=N,
