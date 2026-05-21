@@ -1041,6 +1041,8 @@ if __name__ == '__main__':
             acceptance_ratio=acceptance_ratio,
             anm_cut=anm_cut, N=N,
         )
+
+        initial_pdb = ensemble_final.getAtoms()
     else:
         if not usePseudoatoms:
             # assume they are normal atoms and select atoms named CA in regular case or BB in coarse-grained case
