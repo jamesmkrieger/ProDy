@@ -463,6 +463,7 @@ DATA_FILES = {
         'file': 'simple_tree_nj.nwk',
         'n_leaves': 4,
         'n_top_clades': 3,
+    },
     'modres_ncaa': {
         'file': 'pdb_modres_ncaa.pdb'
     },
