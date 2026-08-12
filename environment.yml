@@ -20,6 +20,7 @@ dependencies:
   - mdtraj
   - openmm
   - clustalw
+  - clustalo
   - scikit-learn
   - scikit-learn-extra
 
