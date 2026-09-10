@@ -94,3 +94,118 @@ class TestPSFFile(TestCase):
         first = parsePSF(writePSF(join(TEMPDIR, 'topology_rt1.psf'), self.ag))
         second = parsePSF(writePSF(join(TEMPDIR, 'topology_rt2.psf'), first))
         assert_equal(topology(second), topology(first))
+
+
+class TestWritePSFSubset(TestCase):
+    """A selection is what cropping a solvated system produces, and it has to come
+    out as a PSF that stands on its own."""
+
+    def setUp(self):
+
+        self.ag = parsePSF(PSF)
+
+    def crop(self, selstr, name):
+
+        sel = self.ag.select(selstr)
+        return sel, parsePSF(writePSF(join(TEMPDIR, name), sel))
+
+    def testIndicesAreRenumbered(self):
+        """Terms are written as positions in the new file, not in the parent group."""
+
+        sel, back = self.crop('index 2 to 5', 'crop_bonds.psf')
+        self.assertEqual(back.numAtoms(), sel.numAtoms())
+        assert_equal((back._bonds + 1).tolist(), [[1, 2], [1, 3], [3, 4]])
+        # parent angles 4-3-5 and 3-5-6 are the two wholly inside; atom 3 is local 1,
+        # so the vertex stays in the middle
+        assert_equal((back._angles + 1).tolist(), [[2, 1, 3], [1, 3, 4]])
+        self.assertLessEqual(back._bonds.max() + 1, back.numAtoms(),
+                             'a term points past the end of the file')
+
+    def testCrosstermIsRenumberedInOrder(self):
+        """The parent term 5 7 9 10 1 3 5 7 becomes local 3 4 5 6 1 2 3 4."""
+
+        _, back = self.crop('index 0 2 4 6 8 9', 'crop_cmap.psf')
+        assert_equal((back._crossterms + 1).tolist(), [[3, 4, 5, 6, 1, 2, 3, 4]])
+
+    def testOrderSurvivesSelection(self):
+        """Selecting must not reorder a term.  A neighbour map records which atoms
+        share a term, not where in it they sit, so rebuilding a term from one put the
+        pivot atom first and renamed an angle's vertex."""
+
+        _, back = self.crop('index 0 to 5', 'crop_order.psf')
+        assert_equal((back._angles + 1).tolist(), ANGLES)
+        assert_equal((back._acceptors + 1).tolist(), ACCEPTORS)
+
+    def testPartialTermsAreDropped(self):
+        """A term reaching outside the selection cannot be written at all."""
+
+        _, back = self.crop('index 0 1', 'crop_partial.psf')
+        assert_equal((back._bonds + 1).tolist(), [[1, 2]])
+        for name in ('_angles', '_dihedrals', '_crossterms'):
+            self.assertIsNone(getattr(back, name),
+                              '{0} kept a term that is not wholly selected'.format(name))
+
+
+class TestTopologyUnderSelection(TestCase):
+    """A selection has to carry the topology two ways: by delegation, where terms are
+    read through the parent group and keep its numbering, and through copy(), which
+    makes an independent AtomGroup numbered from one."""
+
+    def setUp(self):
+
+        self.ag = parsePSF(PSF)
+        self.sel = self.ag.select('index 0 to 5')
+
+    def testNumbondsDataCoversEveryAtom(self):
+        """The num* arrays are per-atom, so they are as long as the group even when
+        the last atoms take part in no term -- `numbonds 0` selects ions by relying
+        on that."""
+
+        for label in ('numbonds', 'numangles', 'numdihedrals', 'numimpropers',
+                      'numdonors', 'numacceptors', 'numcrossterms'):
+            data = self.ag.getData(label)
+            self.assertEqual(len(data), self.ag.numAtoms(),
+                             '{0} is not per-atom'.format(label))
+
+    def testSelectionDelegatesTerms(self):
+        """Iterating a selection yields the terms wholly inside it, in parent
+        numbering and in the order they were set."""
+
+        assert_equal([list(t) for t in self.sel._iterAngles()], self.ag._angles.tolist())
+        assert_equal([list(t) for t in self.sel._iterAcceptors()],
+                     self.ag._acceptors.tolist())
+
+    def testSelectionNumBonds(self):
+        """A Bond must be built on the parent group; on the pointer it has no
+        _bondOrders and getBonds raised AttributeError."""
+
+        self.assertEqual(self.sel.numBonds(), 5)
+
+    def testCopyCarriesEveryTopologySection(self):
+        """copy() used to carry the bonds and silently drop everything else."""
+
+        c = self.sel.copy()
+        self.assertEqual(c.numAtoms(), 6)
+        assert_equal((c._bonds + 1).tolist(), sorted(sorted(b) for b in BONDS))
+        assert_equal((c._angles + 1).tolist(), ANGLES)
+        assert_equal((c._dihedrals + 1).tolist(), DIHEDRALS)
+        assert_equal((c._donors + 1).tolist(), DONORS)
+        assert_equal((c._acceptors + 1).tolist(), ACCEPTORS)
+        # the improper and the cross-term reach outside the selection
+        self.assertIsNone(c._impropers)
+        self.assertIsNone(c._crossterms)
+
+    def testWholeGroupCopyIsUnchanged(self):
+
+        c = self.ag.copy()
+        for name in SECTIONS:
+            assert_equal(getattr(c, '_' + name), getattr(self.ag, '_' + name))
+
+    def testCopyThenWriteMatchesWritingTheSelection(self):
+        """The two routes to a cropped PSF must agree."""
+
+        viaCopy = parsePSF(writePSF(join(TEMPDIR, 'via_copy.psf'), self.sel.copy()))
+        viaSel = parsePSF(writePSF(join(TEMPDIR, 'via_sel.psf'), self.sel))
+        for name in SECTIONS:
+            assert_equal(getattr(viaCopy, '_' + name), getattr(viaSel, '_' + name),
+                         '{0} differs between the two routes'.format(name))
