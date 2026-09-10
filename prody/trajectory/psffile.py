@@ -8,7 +8,7 @@
 
 import os.path
 
-from numpy import fromstring, zeros, ones, array, add
+from numpy import fromstring, zeros, ones, array, add, arange
 
 from prody import PY2K
 from prody.atomic import ATOMIC_FIELDS, AtomGroup
@@ -354,11 +354,28 @@ def writePSF(filename, atoms):
         write(PSFLINE % (i + 1, segments[i], rnums[i], rnames[i], names[i],
                         types[i], charges[i], masses[i], 0))
 
+    # The topology arrays hold indices into the AtomGroup.  For a selection those are
+    # not the positions the atom records above were just written in -- they run up to
+    # the size of the PARENT group -- so every term has to be renumbered onto the
+    # 1-based position of its atom in this file.  Writing them unmapped produced a PSF
+    # whose bonds pointed past its own !NATOM count.
+    try:
+        parent = atoms.getAtomGroup()
+    except AttributeError:
+        def renumber(terms):
+            return array(terms, int) + 1
+    else:
+        lookup = zeros(parent.numAtoms(), int)
+        lookup[atoms.getIndices()] = arange(1, n_atoms + 1)
+
+        def renumber(terms):
+            return lookup[array(terms, int)]
+
     bonds = list(atoms._iterBonds())
     write('\n')
     write('{0:8d} !NBOND: bonds\n'.format(len(bonds)))
     if len(bonds) > 0:
-        bonds = array(bonds, int) + 1
+        bonds = renumber(bonds)
         for i, bond in enumerate(bonds):
             write('%8s%8s' % (bond[0], bond[1]))
             if i % 4 == 3:
@@ -372,7 +389,7 @@ def writePSF(filename, atoms):
     write('\n')
     write('{0:8d} !NTHETA: angles\n'.format(len(angles)))
     if len(angles) > 0:
-        angles = array(angles, int) + 1
+        angles = renumber(angles)
         for i, angle in enumerate(angles):
             write('%8s%8s%8s' % (angle[0], angle[1], angle[2]))
             if i % 3 == 2:
@@ -386,7 +403,7 @@ def writePSF(filename, atoms):
     write('\n')
     write('{0:8d} !NPHI: dihedrals\n'.format(len(dihedrals)))
     if len(dihedrals) > 0:
-        dihedrals = array(dihedrals, int) + 1
+        dihedrals = renumber(dihedrals)
         for i, dihedral in enumerate(dihedrals):
             write('%8s%8s%8s%8s' % (dihedral[0], dihedral[1], dihedral[2], dihedral[3]))
             if i % 4 == 3:
@@ -400,7 +417,7 @@ def writePSF(filename, atoms):
     write('\n')
     write('{0:8d} !NIMPHI: impropers\n'.format(len(impropers)))
     if len(impropers) > 0:
-        impropers = array(impropers, int) + 1
+        impropers = renumber(impropers)
         for i, improper in enumerate(impropers):
             write('%8s%8s%8s%8s' % (improper[0], improper[1], improper[2], improper[3]))
             if i % 2 == 1:
@@ -414,7 +431,7 @@ def writePSF(filename, atoms):
     write('\n')
     write('{0:8d} !NDON: donors\n'.format(len(donors)))
     if len(donors) > 0:
-        donors = array(donors, int) + 1
+        donors = renumber(donors)
         for i, donor in enumerate(donors):
             write('%8s%8s' % (donor[0], donor[1]))
             if i % 4 == 3:
@@ -428,7 +445,7 @@ def writePSF(filename, atoms):
     write('\n')
     write('{0:8d} !NACC: acceptors\n'.format(len(acceptors)))
     if len(acceptors) > 0:
-        acceptors = array(acceptors, int) + 1
+        acceptors = renumber(acceptors)
         for i, acceptor in enumerate(acceptors):
             write('%8s%8s' % (acceptor[0], acceptor[1]))
             if i % 4 == 3:
@@ -442,7 +459,7 @@ def writePSF(filename, atoms):
     write('\n')
     write('{0:8d} !NNB\n'.format(len(nbexclusions)))
     if len(nbexclusions) > 0:
-        nbexclusions = array(nbexclusions, int) + 1
+        nbexclusions = renumber(nbexclusions)
         for i, nbexclusion in enumerate(nbexclusions):
             write('%8s%8s' % (nbexclusion[0], nbexclusion[1]))
             if i % 4 == 3:
@@ -456,7 +473,7 @@ def writePSF(filename, atoms):
     write('\n')
     write('{0:8d} !NCRTERM: crossterms\n'.format(len(crossterms)))
     if len(crossterms) > 0:
-        crossterms = array(crossterms, int) + 1
+        crossterms = renumber(crossterms)
         for crossterm in crossterms:
             # one cross-term per line: both coupled dihedrals, eight indices
             write(('%8s' * 8 + '\n') % tuple(crossterm[:8]))
