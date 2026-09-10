@@ -37,7 +37,7 @@ from prody.measure import calcAngle, calcDistance
 from prody.measure.contacts import findNeighbors
 from prody.proteins import writePDB, parsePDB
 
-from prody.utilities import showFigure, showMatrix
+from prody.utilities import showFigure, showMatrix, joinProcesses
 
 
 __all__ = ['calcWaterBridges', 'calcWaterBridgesTrajectory', 'getWaterBridgesInfoOutput',
@@ -692,8 +692,7 @@ def calcWaterBridgesTrajectory(atoms, trajectory, **kwargs):
                         if j0 >= traj.numConfs()+start_frame:
                             break
 
-                    for p in processes:
-                        p.join()
+                    joinProcesses(processes, 'frame')
 
                 interactions_all = interactions_all[:]
 
@@ -729,8 +728,7 @@ def calcWaterBridgesTrajectory(atoms, trajectory, **kwargs):
                             if i >= n_models:
                                 break
 
-                        for p in processes:
-                            p.join()
+                        joinProcesses(processes, 'model')
 
                     interactions_all = interactions_all[:]
         else:
@@ -1269,8 +1267,7 @@ def savePDBWaterBridgesTrajectory(bridgeFrames, atoms, filename, trajectory=None
                 if frameIndex >= numFrames:
                     break
 
-            for p in processes:
-                p.join()
+            joinProcesses(processes, 'frame')
 
 def getBridgeIndicesString(bridge):
     return ' '.join(map(lambda a: str(a.getIndex()), bridge.proteins))\

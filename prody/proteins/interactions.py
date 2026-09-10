@@ -22,7 +22,7 @@ from numpy import *
 from prody import LOGGER, SETTINGS, PY3K
 from prody.atomic import AtomGroup, Atom, Atomic, Selection, Select
 from prody.atomic import flags, sliceAtomicData
-from prody.utilities import importLA, checkCoords, showFigure, getCoords
+from prody.utilities import importLA, checkCoords, showFigure, getCoords, joinProcesses
 from prody.measure import calcDistance, calcAngle, calcCenter
 from prody.measure.contacts import findNeighbors
 from prody.proteins import writePDB, parsePDB, showProtein
@@ -1837,8 +1837,7 @@ def calcInteractionsMultipleFrames(atoms, interaction_type, trajectory, **kwargs
                         if j0 >= traj.numConfs()+start_frame:
                             break
 
-                    for p in processes:
-                        p.join()
+                    joinProcesses(processes, 'frame')
 
                 interactions_all = interactions_all[:]
 
@@ -1881,8 +1880,7 @@ def calcInteractionsMultipleFrames(atoms, interaction_type, trajectory, **kwargs
                             if i >= n_models:
                                 break
 
-                        for p in processes:
-                            p.join()
+                        joinProcesses(processes, 'model')
 
                     interactions_all = interactions_all[:]
         else:
@@ -5434,8 +5432,7 @@ class InteractionsTrajectory(object):
                         if j0 >= traj.numConfs()+start_frame:
                             break
 
-                    for p in processes:
-                        p.join()
+                    joinProcesses(processes, 'frame')
 
                 interactions_all = [[item[:] for item in row] for row in interactions_all]
                 interactions_nb =  [[item[0] for item in row] for row in interactions_nb]
