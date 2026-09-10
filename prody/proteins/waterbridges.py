@@ -456,7 +456,13 @@ def calcWaterBridges(atoms, **kwargs):
 
     water = atoms.select('water')
     if water is None:
-        raise ValueError('atoms has no water so cannot be analysed with WatFinder')
+        # A structure with no water has no water bridges: that is an answer, not an
+        # error.  Raising aborted a whole batch on one waterless structure, whether
+        # that batch was a script looping serially or a parallel run over frames.
+        # Every output type -- indices, atomic, info, and both the chain and cluster
+        # methods -- is a list, so an empty list is the right shape for all of them.
+        LOGGER.warn('atoms has no water, so there are no water bridges to find')
+        return []
 
     relations = RelationList(len(atoms))
     tooFarAtoms = atoms.select(
@@ -1407,9 +1413,14 @@ def findClusterCenters(file_pattern, **kwargs):
             removeCoords.append(list(coords_all.getCoords()[ii]))
 
     if len(removeCoords) == coords_all.numAtoms():
-        raise ValueError('No waters were selected. You may need to align your trajectory \
-        or change default parameters for detecting water clusters (increase distC \
-        or decrease numC)')
+        # No molecule passed the clustering filter, so there are no cluster centres to
+        # save: an answer, not an error.  Raising aborted a batch part-way through, and
+        # no file is written rather than an empty one, which would look like a result.
+        LOGGER.warn('No waters were selected, so no cluster centres were found and '
+                    'nothing was written. You may need to align your trajectory or '
+                    'change the parameters for detecting water clusters (increase '
+                    'distC or decrease numC)')
+        return
 
     selectedWaters = AtomGroup()
     sel_waters = [] 
