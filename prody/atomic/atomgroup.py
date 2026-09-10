@@ -1757,8 +1757,10 @@ class AtomGroup(Atomic):
                 yield a, b
 
     def setCrossterms(self, crossterms):
-        """Set covalent crossterms between atoms.  *crossterms* must be a list or an
-        array of triplets of indices.  All crossterms must be set at once.  Crossterm
+        """Set CMAP cross-terms between atoms.  *crossterms* must be a list or an
+        array of EIGHT indices per term -- the two coupled dihedrals of a CHARMM CMAP
+        term, in the order they appear in the ``!NCRTERM`` section.  All crossterms
+        must be set at once.  Crossterm
         information can be used to make atom selections, e.g. ``"crossterm to
         index 1"``.  See :mod:`.select` module documentation for details.
         Also, a data array with number of crossterms will be generated and stored
@@ -1769,8 +1771,8 @@ class AtomGroup(Atomic):
             crossterms = np.array(crossterms, int)
         if crossterms.ndim != 2:
             raise ValueError('crossterms.ndim must be 2')
-        if crossterms.shape[1] != 4:
-            raise ValueError('crossterms.shape must be (n_crossterms, 4)')
+        if crossterms.shape[1] != 8:
+            raise ValueError('crossterms.shape must be (n_crossterms, 8)')
         if crossterms.min() < 0:
             raise ValueError('negative atom indices are not valid')
         n_atoms = self._n_atoms
@@ -1810,12 +1812,12 @@ class AtomGroup(Atomic):
                 yield Crossterm(self, crossterm, acsi)
 
     def _iterCrossterms(self):
-        """Yield quadruplets of crosstermed atom indices. Use :meth:`setCrossterms` for setting
-        crossterms."""
+        """Yield the atom indices of each CMAP cross-term, eight per term. Use
+        :meth:`setCrossterms` for setting crossterms."""
 
         if self._crossterms is not None:
-            for a, b, c, d in self._crossterms:
-                yield a, b, c, d
+            for crossterm in self._crossterms:
+                yield crossterm
 
     def numFragments(self):
         """Returns number of connected atom subsets."""
