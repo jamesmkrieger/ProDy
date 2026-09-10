@@ -394,3 +394,95 @@ class TestParallelInteractions(unittest.TestCase):
                        waterbridges._saveBridgesFrame):
             self.assertIs(pickle.loads(pickle.dumps(worker)), worker,
                           '{0} is not picklable'.format(worker.__name__))
+
+    def testNoWaterGivesAnEmptyResult(self):
+        """No water means no water bridges, which is an answer and not an error, and
+        it has to be the same answer on both paths.  Raising aborted a whole batch on
+        one waterless structure; the parallel path meanwhile returned empties, so the
+        two paths disagreed."""
+
+        if not prody.PY3K:
+            return
+
+        from prody.proteins.waterbridges import calcWaterBridgesTrajectory
+
+        for max_proc in (1, 2, 3):
+            frames = calcWaterBridgesTrajectory(self.ATOMS, None, stop_frame=2,
+                                                max_proc=max_proc)
+            # stop_frame is the last frame, inclusive, so 0..2 is three of them
+            self.assertEqual([len(frame) for frame in frames], [0, 0, 0],
+                             'max_proc={0} did not give one empty result per frame'
+                             .format(max_proc))
+
+
+    def testStopFrameIsTheLastFrame(self):
+        """stop_frame is the index of the last frame to read, inclusive, on both the
+        trajectory and the multi-model path and in both modules.  waterbridges sliced
+        [start_frame:stop_frame] on its multi-model path, dropping the last frame, and
+        did not resolve the -1 default there at all."""
+
+        if not prody.PY3K:
+            return
+
+        from prody.proteins.waterbridges import calcWaterBridgesTrajectory
+
+        for max_proc in (1, 2):
+            for stop_frame, expected in ((0, 1), (2, 3), (4, 5)):
+                frames = calcWaterBridgesTrajectory(self.ATOMS, None,
+                                                    stop_frame=stop_frame,
+                                                    max_proc=max_proc)
+                self.assertEqual(len(frames), expected,
+                                 'stop_frame={0} at max_proc={1} gave {2} frames'
+                                 .format(stop_frame, max_proc, len(frames)))
+
+            # -1 means all of them, and must not become an empty slice
+            frames = calcWaterBridgesTrajectory(self.ATOMS, None, stop_frame=-1,
+                                                max_proc=max_proc)
+            self.assertEqual(len(frames), self.ATOMS.numCoordsets())
+
+        # the same bound in interactions
+        self.assertEqual(len(self.counts(1, stop_frame=2)), 3)
+
+
+def _exitsNonZero():
+    """A worker that dies, for testing that the parent notices."""
+
+    import sys
+    sys.exit(1)
+
+
+def _exitsCleanly():
+    """A worker that does nothing at all, successfully."""
+
+    return
+
+
+class TestJoinProcesses(unittest.TestCase):
+    """A Process reports failure only through its exitcode: the exception is raised in
+    the child, whose traceback goes to stderr, and a worker that writes into a shared
+    list leaves its slot untouched.  Without checking the exit code, a crashed worker
+    is indistinguishable from a genuinely empty result."""
+
+    def testRaisesWhenAWorkerDies(self):
+
+        import multiprocessing as mp
+        from prody.utilities import joinProcesses
+
+        processes = [mp.Process(target=_exitsNonZero) for _ in range(2)]
+        for process in processes:
+            process.start()
+
+        self.assertRaises(RuntimeError, joinProcesses, processes, 'frame')
+
+    def testSilentWhenEveryWorkerSucceeds(self):
+
+        import multiprocessing as mp
+        from prody.utilities import joinProcesses
+
+        processes = [mp.Process(target=_exitsCleanly) for _ in range(2)]
+        for process in processes:
+            process.start()
+
+        joinProcesses(processes, 'frame')       # must not raise
+        for process in processes:
+            self.assertEqual(process.exitcode, 0)
