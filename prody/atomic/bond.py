@@ -128,7 +128,8 @@ def evalBonds(bonds, n_atoms):
     """Returns an array mapping atoms to their bonded neighbors and an array
     that stores number of bonds made by each atom."""
 
-    numbonds = np.bincount(bonds.reshape((bonds.shape[0] * 2)))
+    numbonds = np.bincount(bonds.reshape((bonds.shape[0] * 2)),
+                           minlength=n_atoms)
     bmap = np.zeros((n_atoms, numbonds.max()), int)
     bmap.fill(-1)
     index = np.zeros(n_atoms, int)

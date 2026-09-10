@@ -141,7 +141,8 @@ def evalCrossterms(crossterms, n_atoms):
     that stores number of crossterms made by each atom."""
 
     width = crossterms.shape[1]
-    numcrossterms = np.bincount(crossterms.reshape((crossterms.shape[0] * width)))
+    numcrossterms = np.bincount(crossterms.reshape((crossterms.shape[0] * width)),
+                                minlength=n_atoms)
     dmap = np.zeros((n_atoms, numcrossterms.max(), width - 1), int)
     dmap.fill(-1)
     index = np.zeros(n_atoms, int)
