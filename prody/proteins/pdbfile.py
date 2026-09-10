@@ -1288,6 +1288,36 @@ def parseChainsList(filename):
 
     return ags, headers, chains
 
+def _cryst1(box):
+    """Format a PDB ``CRYST1`` record from *box*: three lengths (a, b, c) in Angstrom, six values
+    (a, b, c, alpha, beta, gamma) with angles in degrees, or a 3x3 array of box vectors in Angstrom
+    whose rows are a, b, c. Space group is written as ``P 1`` with Z = 1."""
+    box = np.asarray(box, dtype=float)
+    if box.shape == (3, 3):
+        lengths = np.linalg.norm(box, axis=1)
+        if not lengths.all():
+            raise ValueError('box vectors must be non-zero')
+        a, b, c = lengths
+        cosines = [box[1].dot(box[2]) / (b * c),      # alpha, between b and c
+                   box[0].dot(box[2]) / (a * c),      # beta,  between a and c
+                   box[0].dot(box[1]) / (a * b)]      # gamma, between a and b
+        alpha, beta, gamma = np.degrees(np.arccos(np.clip(cosines, -1.0, 1.0)))
+    else:
+        box = box.flatten()
+        if box.size == 3:
+            a, b, c = box
+            alpha = beta = gamma = 90.0
+        elif box.size == 6:
+            a, b, c, alpha, beta, gamma = box
+        else:
+            raise ValueError('box must have 3 lengths, 6 cell parameters, or shape (3, 3), '
+                             'got {0} values'.format(box.size))
+        if not (a and b and c):
+            raise ValueError('box lengths must be non-zero')
+    return ('CRYST1{0:9.3f}{1:9.3f}{2:9.3f}{3:7.2f}{4:7.2f}{5:7.2f} P 1           1\n'
+            .format(a, b, c, alpha, beta, gamma))
+
+
 def writePDBStream(stream, atoms, csets=None, **kwargs):
     """Write *atoms* in PDB format to a *stream*.
 
@@ -1314,12 +1344,20 @@ def writePDBStream(stream, atoms, csets=None, **kwargs):
     :arg write_remarks: whether to write REMARK lines
         Default is **True**
     :type write_remarks: bool
+
+    :arg box: periodic unit cell to write as a ``CRYST1`` record. Accepts three
+        lengths ``(a, b, c)`` in Angstrom (angles then default to 90), six values
+        ``(a, b, c, alpha, beta, gamma)`` with angles in degrees, or a 3x3 array
+        of box VECTORS in Angstrom (rows are a, b, c), from which lengths and
+        angles are computed. Default is **None**, which writes no ``CRYST1``.
+    :type box: tuple, list, :class:`~numpy.ndarray`
     """    
     renumber = kwargs.get('renumber', True)
     full_ter = kwargs.get('full_ter', True)
     increment_ter = kwargs.get('increment_ter', True)
     write_remarks = kwargs.get('write_remarks', True)
     long_resname = kwargs.get('long_resname', False)
+    box = kwargs.get('box', None)
 
     remark = str(atoms)
     try:
@@ -1509,6 +1547,12 @@ def writePDBStream(stream, atoms, csets=None, **kwargs):
                                 endSeqNum=strand_resnums[-1], endICode=strand_icodes[-1],
                                 sense=strand_secclasses[0]))
             pass
+
+    # write the periodic unit cell, if one was given.  CRYST1 belongs after the REMARK block and before
+    # the coordinate records.  Note prody writes no header at all by default, so a box has to be passed
+    # explicitly -- an AtomGroup carries no unit cell.
+    if box is not None:
+        stream.write(_cryst1(box))
 
     # write atoms
     multi = len(coordsets) > 1
@@ -1738,6 +1782,12 @@ def writePDB(filename, atoms, csets=None, autoext=True, **kwargs):
 
     :arg long_resname: whether to write 4-character resnames instead of cutting at 3 chars
     :type long_resname: bool
+
+    :arg box: periodic unit cell written as a ``CRYST1`` record -- three lengths
+        ``(a, b, c)`` in Angstrom, six values ``(a, b, c, alpha, beta, gamma)`` with
+        angles in degrees, or a 3x3 array of box vectors whose rows are a, b, c.
+        Default **None** writes no ``CRYST1``.
+    :type box: tuple, list, :class:`~numpy.ndarray`
     """
 
     if not (filename.lower().endswith('.pdb') or filename.lower().endswith('.pdb.gz') or
