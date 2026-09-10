@@ -5330,6 +5330,12 @@ class InteractionsTrajectory(object):
                 raise TypeError('coords must be an object '
                                 'with `getCoords` method')
 
+        # bound up front so the early exit below can return it, as
+        # calcInteractionsMultipleFrames does with interactions_all.  It used to be
+        # assigned only further down, so returning it here read a local that had no
+        # value yet and raised UnboundLocalError instead of returning.
+        interactions_nb_traj = []
+
         start_frame = kwargs.pop('start_frame', 0)
         stop_frame = kwargs.pop('stop_frame', -1)
         max_proc = kwargs.pop('max_proc', mp.cpu_count()//2)
@@ -5339,9 +5345,7 @@ class InteractionsTrajectory(object):
                 trajectory = atoms
             else:
                 LOGGER.info('Include trajectory or use multi-model PDB file.')
-                # this returned interactions_nb_traj, a local that is not assigned
-                # until further down the function, so the path raised NameError
-                return None
+                return interactions_nb_traj
 
         if isinstance(trajectory, Atomic):
             trajectory = Ensemble(trajectory)
