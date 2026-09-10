@@ -261,4 +261,9 @@ class TestInteractions(unittest.TestCase):
         if prody.PY3K:
             import os
             for filename in ['test_2k39_all.npy', 'test_2k39_sbs.npy', 'test_2k39_disu.npy']:
-                os.remove(filename)
+                # only remove what a test actually wrote: a test that failed before
+                # saving leaves the file absent, and tearing it down then raised
+                # FileNotFoundError, turning one failure into a failure plus an error
+                # and hiding which test was the real one
+                if os.path.isfile(filename):
+                    os.remove(filename)
