@@ -5339,6 +5339,8 @@ class InteractionsTrajectory(object):
                 trajectory = atoms
             else:
                 LOGGER.info('Include trajectory or use multi-model PDB file.')
+                # this returned interactions_nb_traj, a local that is not assigned
+                # until further down the function, so the path raised NameError
                 return None
 
         if isinstance(trajectory, Atomic):
@@ -5347,52 +5349,23 @@ class InteractionsTrajectory(object):
         if isinstance(trajectory, Trajectory):
             nfi = trajectory._nfi
             trajectory.reset()
-        numFrames = trajectory._n_csets
-
-        if stop_frame == -1:
-            traj = trajectory[start_frame:]
-        else:
-            traj = trajectory[start_frame:stop_frame+1]
-
-        HBs_all = [[] for _ in traj]
-        SBs_all = [[] for _ in traj]
-        RIB_all = [[] for _ in traj]
-        PiStack_all = [[] for _ in traj]
-        PiCat_all = [[] for _ in traj]
-        HPh_all = [[] for _ in traj]
-        DiBs_all = [[] for _ in traj]
-
-        HBs_nb = [[] for _ in traj]
-        SBs_nb = [[] for _ in traj]
-        RIB_nb = [[] for _ in traj]
-        PiStack_nb = [[] for _ in traj]
-        PiCat_nb = [[] for _ in traj]
-        HPh_nb = [[] for _ in traj]
-        DiBs_nb = [[] for _ in traj]
-
-        interactions_dic = {
-        "HBs": calcHydrogenBonds,
-        "SBs": calcSaltBridges,
-        "RIB": calcRepulsiveIonicBonding,
-        "PiStack": calcPiStacking,
-        "PiCat": calcPiCation,
-        "HPh": calcHydrophobic,
-        "DiB": calcDisulfideBonds
-        }
-
-        interactions_traj = [HBs_all, SBs_all, RIB_all, PiStack_all, PiCat_all, HPh_all, DiBs_all]
-        interactions_nb_traj = [HBs_nb, SBs_nb, RIB_nb, PiStack_nb, PiCat_nb, HPh_nb, DiBs_nb]
-
-        atoms_copy = atoms.copy()
+        # One call per interaction type, rather than a second implementation of the
+        # same per-frame loop.  calcInteractionsMultipleFrames already does the frame
+        # slicing, the process pool and the slot bookkeeping -- and resets the
+        # trajectory itself, so only the caller's frame index is restored here.
+        # Carrying a second copy meant two code paths to keep correct, and in
+        # practice only one of them got fixed each time.
         interaction_types = ['HBs', 'SBs', 'RIB', 'PiStack', 'PiCat', 'HPh', 'DiB']
-        interactions_all = [calcInteractionsMultipleFrames(atoms, t, trajectory,
-                                                        start_frame=start_frame,
-                                                        stop_frame=stop_frame,
-                                                        max_proc=max_proc,
-                                                        **kwargs)
-                            for t in interaction_types]
-        interactions_nb = [[len(frame) for frame in itype] for itype in interactions_all]
-        
+        interactions_all = [calcInteractionsMultipleFrames(atoms, interaction_type,
+                                                           trajectory,
+                                                           start_frame=start_frame,
+                                                           stop_frame=stop_frame,
+                                                           max_proc=max_proc,
+                                                           **kwargs)
+                            for interaction_type in interaction_types]
+        interactions_nb = [[len(frame) for frame in one_type]
+                           for one_type in interactions_all]
+
         self._atoms = atoms
         self._traj = trajectory
         self._interactions_traj = interactions_all
