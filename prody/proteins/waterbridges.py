@@ -606,7 +606,8 @@ def calcWaterBridgesTrajectory(atoms, trajectory, **kwargs):
     :arg start_frame: frame to start from
     :type start_frame: int
 
-    :arg stop_frame: frame to stop
+    :arg stop_frame: index of the last frame to read, inclusive.
+        Default is -1, meaning all of them.
     :type stop_frame: int
 
     :arg max_proc: maximum number of processes to use
@@ -706,7 +707,15 @@ def calcWaterBridgesTrajectory(atoms, trajectory, **kwargs):
 
     else:
         if atoms.numCoordsets() > 1:
-            n_models = len(atoms.getCoordsets()[start_frame:stop_frame])
+            # stop_frame is the index of the LAST frame to read, as it already is for
+            # the trajectory branch above and throughout interactions.py, so the slice
+            # needs the +1.  Without it the last model was silently dropped; and -1,
+            # the default meaning "all of them", has to be resolved before the +1 turns
+            # it into an empty slice.
+            if stop_frame == -1:
+                stop_frame = atoms.numCoordsets()
+
+            n_models = len(atoms.getCoordsets()[start_frame:stop_frame+1])
 
             if max_proc == 1:
                 interactions_all = [[] for _ in range(n_models)]
